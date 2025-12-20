@@ -15,6 +15,8 @@
 
 const { decodeReplay } = require("./decode");
 const { decodeBufferToUtf8String, normalizeFourCC } = require("../util/text");
+const { computeAverageApmByUserId } = require("./stats/apm");
+const { gameLoopsToSeconds } = require("./time");
 
 /** @typedef {import("../../index").ReplaySummary} ReplaySummary */
 /** @typedef {import("../../index").LoadReplaySummaryOptions} LoadReplaySummaryOptions */
@@ -25,12 +27,6 @@ function formatPatchVersion(version) {
   const revision = version?.m_revision ?? 0;
   const build = version?.m_build ?? 0;
   return `${major}.${minor}.${revision}.${build}`;
-}
-
-function gameLoopsToSeconds(gameLoops, useScaledTime) {
-  const loops = Number(gameLoops ?? 0);
-  const fps = useScaledTime ? 16 * 1.4 : 16;
-  return loops / fps;
 }
 
 /**
@@ -49,7 +45,15 @@ async function loadReplaySummary(replayPath, options = {}) {
         race: decodeBufferToUtf8String(p?.m_race),
         result: protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result),
         teamId: p?.m_teamId ?? null,
+        apm: null,
       })) ?? [];
+
+    if (options.includeApm !== false) {
+      const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
+      for (let i = 0; i < players.length; i++) {
+        players[i].apm = apmByUserId[i] ?? 0;
+      }
+    }
 
     return {
       patchVersion: formatPatchVersion(header?.m_version),

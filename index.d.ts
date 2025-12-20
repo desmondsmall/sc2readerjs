@@ -20,6 +20,7 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: string | number | null;
   teamId: number | null;
+  apm: number | null;
 }
 
 export interface ReplayDetails {
@@ -37,6 +38,7 @@ export interface ReplayDetails {
 
 export interface LoadReplaySummaryOptions {
   protocolDir?: string;
+  includeApm?: boolean;
 }
 
 export interface ReplaySummary {
@@ -56,3 +58,49 @@ export function loadReplaySummary(
   replayPath: string,
   options?: LoadReplaySummaryOptions
 ): Promise<ReplaySummary>;
+
+export type BuildCommandKind = "unit" | "building" | "upgrade";
+
+export interface BuildCommandTarget {
+  kind: string;
+  value: unknown;
+}
+
+export interface BuildCommand {
+  userId: number;
+  gameloop: number;
+  seconds: number;
+  queued: boolean;
+  abilityLink: number;
+  commandIndex: number;
+  abilityName: string;
+  commandName: string;
+  action: string;
+  kind: BuildCommandKind;
+  product: string | null;
+  buildTimeSeconds: number | null;
+  target: BuildCommandTarget | null;
+}
+
+export interface ReplayBuildCommandsPlayer {
+  name: string | null;
+  race: string | null;
+  commands: BuildCommand[];
+}
+
+export interface ReplayBuildCommands {
+  patchVersion: string;
+  baseBuild: number | null;
+  build: number | null;
+  useScaledTime: boolean;
+  players: ReplayBuildCommandsPlayer[];
+}
+
+export interface LoadBuildCommandsOptions {
+  protocolDir?: string;
+}
+
+export function loadBuildCommands(
+  replayPath: string,
+  options?: LoadBuildCommandsOptions
+): Promise<ReplayBuildCommands>;

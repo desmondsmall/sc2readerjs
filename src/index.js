@@ -12,6 +12,6 @@
  */
 
 /** @type {typeof import("../index")} */
-const api = require("./replay/summary");
+const api = require("./replay");
 
 module.exports = api;

@@ -25,4 +25,9 @@ test("loads basic replay summary fields", async () => {
   const races = summary.players.map((p) => p.race);
   assert.ok(races.includes("Terran"));
   assert.ok(races.includes("Zerg"));
+
+  for (const p of summary.players) {
+    assert.equal(typeof p.apm, "number");
+    assert.ok(Number.isFinite(p.apm));
+  }
 });

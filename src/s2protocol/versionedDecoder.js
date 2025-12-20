@@ -29,6 +29,10 @@ class VersionedDecoder {
     this._buffer.byteAlign();
   }
 
+  skipInstance() {
+    this._skipInstance();
+  }
+
   _expectSkip(expected) {
     const got = this._buffer.readBits(8);
     if (got !== expected) throw new CorruptedError(`Expected skip ${expected}, got ${got}`);
@@ -87,6 +91,17 @@ class VersionedDecoder {
     this._expectSkip(4);
     const exists = this._buffer.readBits(8) !== 0;
     return exists ? decodeInner() : null;
+  }
+
+  readChoice(fieldsByTag) {
+    this._expectSkip(3);
+    const tag = this._vint();
+    const field = fieldsByTag.get(tag);
+    if (!field) {
+      this._skipInstance();
+      return {};
+    }
+    return { [field.name]: field.decode() };
   }
 
   readStruct(fieldsByTag) {

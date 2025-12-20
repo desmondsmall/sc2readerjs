@@ -10,6 +10,7 @@
  */
 
 const zlib = require("zlib");
+const { bunzip2 } = require("./bzip2");
 
 function inflate(data) {
   return new Promise((resolve, reject) => {
@@ -36,20 +37,33 @@ async function inflateMaybe(data) {
   const method = data[0] >>> 0;
   const payload = data.subarray(1);
 
-  // MPQ "compression type" is a bitmask; SC2 replays are expected to be zlib (0x02).
-  if ((method & ~0x02) !== 0) {
+  // MPQ "compression type" is a bitmask. SC2 commonly uses:
+  // - 0x02 zlib/deflate
+  // - 0x10 bzip2
+  //
+  // Decompression order in practice: bzip2 first (if present), then zlib.
+  let out = payload;
+
+  if ((method & 0x10) !== 0) {
+    out = await bunzip2(out);
+  }
+
+  if ((method & 0x02) !== 0) {
+    try {
+      out = await inflate(out);
+    } catch (e) {
+      out = await inflateRaw(out);
+    }
+  }
+
+  const unsupported = method & ~(0x02 | 0x10);
+  if (unsupported !== 0) {
     throw new Error(
       `Unsupported MPQ compression flags 0x${method.toString(16)}`
     );
   }
-  if ((method & 0x02) === 0) return payload;
 
-  try {
-    return await inflate(payload);
-  } catch (e) {
-    // Some MPQs store raw deflate streams; try inflateRaw as a fallback.
-    return await inflateRaw(payload);
-  }
+  return out;
 }
 
 module.exports = { inflateMaybe };

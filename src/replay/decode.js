@@ -24,6 +24,7 @@ const { loadProtocol, loadLatestProtocol } = require("../s2protocol/protocolLoad
  * @property {import("../s2protocol/protocol").Protocol} protocol
  * @property {any} header
  * @property {any} details
+ * @property {(name: string) => Promise<Buffer>} readFile
  * @property {() => Promise<void>} close
  */
 
@@ -57,7 +58,7 @@ async function decodeReplay(replayPath, options = {}) {
     const detailsBytes = await archive.readFile("replay.details");
     const details = protocol.decodeReplayDetails(detailsBytes);
 
-    return { baseBuild, protocol, header, details, close };
+    return { baseBuild, protocol, header, details, readFile: (name) => archive.readFile(name), close };
   } catch (error) {
     await close();
     throw error;
@@ -65,4 +66,3 @@ async function decodeReplay(replayPath, options = {}) {
 }
 
 module.exports = { decodeReplay };
-
