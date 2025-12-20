@@ -1,3 +1,15 @@
+// @ts-check
+
+/**
+ * Storm MPQ hashing/decryption helpers.
+ *
+ * MPQ hash/block tables are encrypted using Blizzard's Storm algorithm.
+ * This module implements:
+ * - `hashString` for MPQ filename/table-key hashing
+ * - `decryptBytes` for in-place decryption of 32-bit words in a Buffer
+ * - `decryptTable` for reading + decrypting MPQ tables from a file handle
+ */
+
 const cryptoBuffer = new Uint32Array(0x500);
 let cryptoReady = false;
 
@@ -80,4 +92,3 @@ module.exports = {
   decryptBytes,
   decryptTable,
 };
-

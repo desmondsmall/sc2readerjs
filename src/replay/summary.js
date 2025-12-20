@@ -1,7 +1,24 @@
+// @ts-check
+
+/**
+ * High-level replay helper(s).
+ *
+ * `loadReplaySummary` ties together:
+ * - `SC2MPQArchive` to read raw blobs from the `.SC2Replay` container
+ * - `Protocol` (loaded from `data/protocols/protocol*.json`) to decode:
+ *   - replay header (from the MPQ user-data header) for patch/build + duration
+ *   - replay details (`replay.details`) for map + player list
+ *
+ * This is meant to stay lightweight: it does not parse event streams.
+ */
+
 const path = require("path");
 const { SC2MPQArchive } = require("../sc2mpq/sc2mpq");
 const { loadProtocol, loadLatestProtocol } = require("../s2protocol/protocolLoader");
 const { decodeBufferToUtf8String, normalizeFourCC } = require("../util/text");
+
+/** @typedef {import("../../index").LoadReplaySummaryOptions} LoadReplaySummaryOptions */
+/** @typedef {import("../../index").ReplaySummary} ReplaySummary */
 
 function formatPatchVersion(version) {
   const major = version?.m_major ?? 0;
@@ -17,6 +34,11 @@ function gameLoopsToSeconds(gameLoops, useScaledTime) {
   return loops / fps;
 }
 
+/**
+ * @param {string} replayPath
+ * @param {LoadReplaySummaryOptions} [options]
+ * @returns {Promise<ReplaySummary>}
+ */
 async function loadReplaySummary(replayPath, options = {}) {
   const protocolDir =
     options.protocolDir || path.join(__dirname, "../../data/protocols");

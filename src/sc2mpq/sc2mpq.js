@@ -1,3 +1,21 @@
+// @ts-check
+
+/**
+ * SC2 MPQ archive reader specialized for `.SC2Replay`.
+ *
+ * StarCraft II replay files use an MPQ "user data header" at the start of the file:
+ * - offset 0: `MPQ\x1B` user data header
+ * - later: `MPQ\x1A` MPQ archive header (often at 0x400)
+ *
+ * This module:
+ * - locates the MPQ header via the user data header
+ * - reads and decrypts the hash/block tables (Storm MPQ algorithm)
+ * - reads individual files by name (e.g. `replay.details`, `replay.initData`, etc.)
+ *
+ * The `readReplayHeaderBytes()` helper returns the user-data "content" bytes that
+ * s2protocol decodes as the replay header structure.
+ */
+
 const fs = require("fs/promises");
 const { inflateMaybe } = require("./zlib");
 const { hashString, decryptTable, decryptBytes } = require("./storm");
@@ -290,4 +308,3 @@ class SC2MPQArchive {
 }
 
 module.exports = { SC2MPQArchive, FileFlag };
-

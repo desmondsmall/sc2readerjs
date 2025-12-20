@@ -1,3 +1,15 @@
+// @ts-check
+
+/**
+ * Loads protocol definitions from vendored s2protocol JSON files.
+ *
+ * StarCraft II replays are build-specific: the replay header includes `m_version.m_baseBuild`,
+ * and that build selects which `protocol{build}.json` schema must be used to decode files.
+ *
+ * This module finds the latest available schema (for the initial header decode) and then
+ * loads the exact schema for a replay's base build.
+ */
+
 const fs = require("fs/promises");
 const path = require("path");
 const { Protocol } = require("./protocol");

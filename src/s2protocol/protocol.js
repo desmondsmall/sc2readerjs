@@ -1,3 +1,17 @@
+// @ts-check
+
+/**
+ * Data-driven decoder using Blizzard's published protocol schemas.
+ *
+ * `data/protocols/protocol{build}.json` contains type declarations for a specific SC2 build.
+ * This module loads those declarations and can decode:
+ * - `NNet.Replay.SHeader` from the replay header blob
+ * - `NNet.Game.SDetails` from `replay.details`
+ *
+ * The decoding strategy is intentionally minimal: we implement only the type kinds needed
+ * for header/details (Bool/Int/Enum/String/Blob/Array/Optional/Struct/UserType).
+ */
+
 const fs = require("fs/promises");
 const path = require("path");
 const { VersionedDecoder } = require("./versionedDecoder");

@@ -1,3 +1,14 @@
+// @ts-check
+
+/**
+ * MPQ compression helper (zlib/deflate only).
+ *
+ * Some MPQ file sectors store a 1-byte compression "method" prefix followed by data.
+ * SC2 replays typically use zlib/deflate (flag 0x02).
+ *
+ * `inflateMaybe` expects a Buffer containing [methodByte][payload...].
+ */
+
 const zlib = require("zlib");
 
 function inflate(data) {
@@ -42,4 +53,3 @@ async function inflateMaybe(data) {
 }
 
 module.exports = { inflateMaybe };
-

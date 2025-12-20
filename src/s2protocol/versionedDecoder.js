@@ -1,3 +1,15 @@
+// @ts-check
+
+/**
+ * s2protocol "versioned" decoder.
+ *
+ * The replay header and replay details structures use a versioned encoding where each
+ * value is prefixed by a 1-byte "kind" marker (array/blob/struct/etc.) followed by a VInt.
+ *
+ * This decoder exposes only the primitives needed for our current metadata use-cases.
+ * Higher-level decoding is driven by `Protocol.decodeTypeInfo`.
+ */
+
 const { BitPackedBuffer, CorruptedError, TruncatedError } = require("./bitPacked");
 
 class VersionedDecoder {
@@ -132,4 +144,3 @@ class VersionedDecoder {
 }
 
 module.exports = { VersionedDecoder, CorruptedError, TruncatedError };
-

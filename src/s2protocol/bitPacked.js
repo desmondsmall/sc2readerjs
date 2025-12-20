@@ -1,3 +1,14 @@
+// @ts-check
+
+/**
+ * Bit-level reader used by s2protocol decoders.
+ *
+ * This is a direct JS adaptation of s2protocol's bit-packed buffer concept:
+ * it supports reading arbitrary bit counts and aligned byte blobs.
+ *
+ * `VersionedDecoder` builds on this for "versioned" s2protocol encodings.
+ */
+
 class TruncatedError extends Error {}
 class CorruptedError extends Error {}
 
@@ -57,4 +68,3 @@ class BitPackedBuffer {
 }
 
 module.exports = { BitPackedBuffer, TruncatedError, CorruptedError };
-

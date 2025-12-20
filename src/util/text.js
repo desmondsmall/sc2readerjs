@@ -1,3 +1,13 @@
+// @ts-check
+
+/**
+ * Small text helpers.
+ *
+ * Protocol decoders frequently return Buffer blobs for strings. These helpers:
+ * - convert Buffers to UTF-8 strings
+ * - normalize FourCC-like buffers (strip NULs)
+ */
+
 function decodeBufferToUtf8String(value) {
   if (value === null || value === undefined) return null;
   const buf = Buffer.isBuffer(value) ? value : Buffer.from(value);
@@ -14,4 +24,3 @@ function normalizeFourCC(value) {
 }
 
 module.exports = { decodeBufferToUtf8String, normalizeFourCC };
-
