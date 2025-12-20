@@ -33,9 +33,13 @@ async function loadChat(replayPath, options = {}) {
 
     const players =
       (details?.m_playerList ?? []).map((p) => ({
+        userId: null,
         name: decodeBufferToUtf8String(p?.m_name),
         race: decodeBufferToUtf8String(p?.m_race),
       })) ?? [];
+
+    // For this API, `userId` refers to the normalized player index (0..playerCount-1).
+    for (let i = 0; i < players.length; i++) players[i].userId = i;
 
     const eventUserIdToPlayerIndex = await buildEventUserIdToPlayerIndexMap(ctx, players.length);
 
@@ -69,6 +73,7 @@ async function loadChat(replayPath, options = {}) {
       const playerIndex = eventUserIdToPlayerIndex.get(ev.userId);
       if (playerIndex === undefined) continue;
       const seconds = gameLoopsToSeconds(ev.gameloop, useScaledTime);
+      const playerName = players[playerIndex]?.name ?? `Player${playerIndex + 1}`;
 
       if (ev.eventType === CHAT_EVENT) {
         const recipient = normalizeEnumMember(
@@ -79,6 +84,7 @@ async function loadChat(replayPath, options = {}) {
         messages.push({
           userId: playerIndex,
           sourceUserId: ev.userId,
+          playerName,
           gameloop: ev.gameloop,
           seconds,
           recipient,
@@ -93,6 +99,7 @@ async function loadChat(replayPath, options = {}) {
         pings.push({
           userId: playerIndex,
           sourceUserId: ev.userId,
+          playerName,
           gameloop: ev.gameloop,
           seconds,
           recipient,
@@ -101,6 +108,9 @@ async function loadChat(replayPath, options = {}) {
         });
       }
     }
+
+    messages.sort((a, b) => a.gameloop - b.gameloop);
+    pings.sort((a, b) => a.gameloop - b.gameloop);
 
     return {
       patchVersion: formatPatchVersion(header?.m_version),

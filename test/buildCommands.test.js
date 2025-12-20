@@ -18,10 +18,7 @@ test("loads build commands (units/buildings/upgrades) from game events", async (
   const all = result.players.flatMap((p) => p.commands);
   assert.ok(all.length > 0);
 
-  const resolved = all.filter((c) => c.commandName !== null);
-  assert.ok(resolved.length > 0);
-
-  for (const c of resolved.slice(0, 50)) {
+  for (const c of all.slice(0, 50)) {
     assert.ok(Number.isFinite(c.gameloop));
     assert.ok(Number.isFinite(c.seconds));
     assert.equal(typeof c.abilityName, "string");

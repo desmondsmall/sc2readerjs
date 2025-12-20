@@ -10,6 +10,7 @@ const { buildEventUserIdToPlayerIndexMap } = require("./playerMapping");
  * @typedef {object} LoadBuildCommandsOptions
  * @property {string} [protocolDir]
  * @property {boolean} [includeApm] Not used; accepted for symmetry with summary.
+ * @property {boolean} [includeUnresolved] When true, includes non-build/non-resolved `SCmdEvent`s (debugging).
  */
 
 function formatPatchVersion(version) {
@@ -42,6 +43,7 @@ async function loadBuildCommands(replayPath, options = {}) {
   try {
     const { protocol, header, details } = ctx;
     const useScaledTime = Boolean(header?.m_useScaledTime);
+    const includeUnresolved = Boolean(options.includeUnresolved);
 
     const players =
       (details?.m_playerList ?? []).map((p) => ({
@@ -81,6 +83,7 @@ async function loadBuildCommands(replayPath, options = {}) {
       if (!Number.isFinite(commandIndex) || commandIndex < 0) continue;
 
       const resolved = await resolveAbilityCommand(baseBuild, abilityLink, commandIndex);
+      if (!resolved && !includeUnresolved) continue;
 
       const seconds = gameLoopsToSeconds(ev.gameloop, useScaledTime);
       const cmdFlags = Number(payload?.m_cmdFlags ?? 0);

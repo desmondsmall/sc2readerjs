@@ -64,6 +64,7 @@ export type ChatRecipient = "all" | "allies" | "observers" | string | null;
 export interface ChatMessage {
   userId: number;
   sourceUserId?: number;
+  playerName: string | null;
   gameloop: number;
   seconds: number;
   recipient: ChatRecipient;
@@ -74,6 +75,7 @@ export interface ChatMessage {
 export interface Ping {
   userId: number;
   sourceUserId?: number;
+  playerName: string | null;
   gameloop: number;
   seconds: number;
   recipient: ChatRecipient;
@@ -86,7 +88,7 @@ export interface ReplayChat {
   baseBuild: number | null;
   build: number | null;
   useScaledTime: boolean;
-  players: Array<{ name: string | null; race: string | null }>;
+  players: Array<{ userId: number; name: string | null; race: string | null }>;
   messages: ChatMessage[];
   pings: Ping[];
 }
@@ -146,6 +148,7 @@ export interface ReplayBuildCommands {
 
 export interface LoadBuildCommandsOptions {
   protocolDir?: string;
+  includeUnresolved?: boolean;
 }
 
 export function loadBuildCommands(

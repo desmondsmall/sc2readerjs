@@ -20,5 +20,10 @@ test("loads chat and ping events (may be empty)", async () => {
   for (const m of chat.messages.slice(0, 10)) {
     assert.ok(Number.isFinite(m.seconds));
     assert.equal(typeof m.text, "string");
+    assert.equal(typeof m.playerName, "string");
+  }
+
+  for (let i = 1; i < chat.messages.length; i++) {
+    assert.ok(chat.messages[i - 1].gameloop <= chat.messages[i].gameloop);
   }
 });

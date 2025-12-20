@@ -6,9 +6,21 @@ const path = require("path");
 let cachedAbilityLookup = null; // Map<string, string[]>
 let cachedTrainCommands = null; // Map<string, { product: string, buildTimeSeconds: number }>
 const cachedAbilityLinkToNameByBuild = new Map(); // number -> Map<number,string>
+let cachedLotvBaseAbilityLinkToName = null; // Map<number, string>
+let cachedLotVAbilityBuilds = null; // number[]
 
 function sc2readerDataRoot() {
   return path.resolve(__dirname, "../../../data/sc2reader");
+}
+
+function lotvDir() {
+  return path.join(sc2readerDataRoot(), "LotV");
+}
+
+function mergeIdToNameMaps(baseMap, patchMap) {
+  const merged = new Map(baseMap);
+  for (const [id, name] of patchMap.entries()) merged.set(id, name);
+  return merged;
 }
 
 async function loadAbilityLookup() {
@@ -41,34 +53,23 @@ async function loadTrainCommands() {
   return map;
 }
 
-async function loadAbilityLinkToName(baseBuild) {
-  if (cachedAbilityLinkToNameByBuild.has(baseBuild)) {
-    return cachedAbilityLinkToNameByBuild.get(baseBuild);
+async function loadLotVAbilityBuilds() {
+  if (cachedLotVAbilityBuilds) return cachedLotVAbilityBuilds;
+  const dir = lotvDir();
+  const entries = await fs.readdir(dir);
+  const builds = [];
+  for (const name of entries) {
+    const m = name.match(/^(\d+)_abilities\.csv$/);
+    if (!m) continue;
+    builds.push(Number(m[1]));
   }
+  builds.sort((a, b) => a - b);
+  cachedLotVAbilityBuilds = builds;
+  return builds;
+}
 
-  const root = sc2readerDataRoot();
-  const candidates = [
-    path.join(root, "LotV", `${baseBuild}_abilities.csv`),
-    path.join(root, "HotS", `${baseBuild}_abilities.csv`),
-    path.join(root, "WoL", `${baseBuild}_abilities.csv`),
-  ];
-
-  let text = null;
-  for (const p of candidates) {
-    try {
-      text = await fs.readFile(p, "utf8");
-      break;
-    } catch {
-      // continue
-    }
-  }
-
-  if (text === null) {
-    const map = new Map();
-    cachedAbilityLinkToNameByBuild.set(baseBuild, map);
-    return map;
-  }
-
+async function readAbilityLinkToNameCsv(csvPath) {
+  const text = await fs.readFile(csvPath, "utf8");
   const map = new Map();
   for (const line of text.split(/\r?\n/)) {
     if (!line) continue;
@@ -79,9 +80,50 @@ async function loadAbilityLinkToName(baseBuild) {
     if (!Number.isFinite(id) || !name) continue;
     map.set(id, name);
   }
-
-  cachedAbilityLinkToNameByBuild.set(baseBuild, map);
   return map;
+}
+
+async function loadLotvBaseAbilityLinkToName() {
+  if (cachedLotvBaseAbilityLinkToName) return cachedLotvBaseAbilityLinkToName;
+  const basePath = path.join(lotvDir(), "base_abilities.csv");
+  try {
+    cachedLotvBaseAbilityLinkToName = await readAbilityLinkToNameCsv(basePath);
+  } catch {
+    cachedLotvBaseAbilityLinkToName = new Map();
+  }
+  return cachedLotvBaseAbilityLinkToName;
+}
+
+async function loadAbilityLinkToName(baseBuild) {
+  if (cachedAbilityLinkToNameByBuild.has(baseBuild)) return cachedAbilityLinkToNameByBuild.get(baseBuild);
+
+  // LotV-only "base pack" behavior:
+  // - `LotV/base_abilities.csv` is the baseline mapping (stable-ish core ids).
+  // - `LotV/${build}_abilities.csv` contains build-specific additions/overrides.
+  // We load the base pack and overlay the best available build file:
+  //   exact `build`, else closest LotV build <= baseBuild, else base-only.
+  const builds = await loadLotVAbilityBuilds();
+  const baseMap = await loadLotvBaseAbilityLinkToName();
+
+  const fallbackBuild = builds.includes(baseBuild)
+    ? baseBuild
+    : [...builds].reverse().find((b) => b <= baseBuild) ?? null;
+
+  if (fallbackBuild === null) {
+    cachedAbilityLinkToNameByBuild.set(baseBuild, baseMap);
+    return baseMap;
+  }
+
+  const chosenPath = path.join(lotvDir(), `${fallbackBuild}_abilities.csv`);
+  try {
+    const patchMap = await readAbilityLinkToNameCsv(chosenPath);
+    const merged = mergeIdToNameMaps(baseMap, patchMap);
+    cachedAbilityLinkToNameByBuild.set(baseBuild, merged);
+    return merged;
+  } catch {
+    cachedAbilityLinkToNameByBuild.set(baseBuild, baseMap);
+    return baseMap;
+  }
 }
 
 function classifyCommandName(commandName) {
