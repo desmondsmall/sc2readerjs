@@ -4,6 +4,7 @@ const { decodeReplay } = require("./decode");
 const { decodeBufferToUtf8String } = require("../util/text");
 const { gameLoopsToSeconds } = require("./time");
 const { resolveAbilityCommand } = require("./lookups/sc2reader");
+const { buildEventUserIdToPlayerIndexMap } = require("./playerMapping");
 
 /**
  * @typedef {object} LoadBuildCommandsOptions
@@ -49,6 +50,8 @@ async function loadBuildCommands(replayPath, options = {}) {
         commands: [],
       })) ?? [];
 
+    const eventUserIdToPlayerIndex = await buildEventUserIdToPlayerIndexMap(ctx, players.length);
+
     const baseBuild = header?.m_version?.m_baseBuild ?? null;
     if (!Number.isFinite(baseBuild) || baseBuild === null) {
       throw new Error("Unable to determine baseBuild from replay header");
@@ -57,12 +60,16 @@ async function loadBuildCommands(replayPath, options = {}) {
     const gameEvents = await ctx.readFile("replay.game.events");
     const CMD_EVENT = "NNet.Game.SCmdEvent";
 
+    /** @type {Array<any>} */
+    const commands = [];
+
     for (const ev of protocol.iterateGameEvents(gameEvents, {
       decode: "full",
       eventTypes: [CMD_EVENT],
     })) {
       if (ev.eventType !== CMD_EVENT) continue;
-      if (ev.userId < 0 || ev.userId >= players.length) continue;
+      const playerIndex = eventUserIdToPlayerIndex.get(ev.userId);
+      if (playerIndex === undefined) continue;
 
       const payload = ev.payload;
       const abil = payload?.m_abil ?? null;
@@ -74,32 +81,30 @@ async function loadBuildCommands(replayPath, options = {}) {
       if (!Number.isFinite(commandIndex) || commandIndex < 0) continue;
 
       const resolved = await resolveAbilityCommand(baseBuild, abilityLink, commandIndex);
-      if (!resolved) continue;
 
       const seconds = gameLoopsToSeconds(ev.gameloop, useScaledTime);
       const cmdFlags = Number(payload?.m_cmdFlags ?? 0);
       const queued = (cmdFlags & 0x2) !== 0;
 
-      players[ev.userId].commands.push({
-        userId: ev.userId,
+      players[playerIndex].commands.push({
+        userId: playerIndex,
+        sourceUserId: ev.userId,
         gameloop: ev.gameloop,
         seconds,
         queued,
         abilityLink,
         commandIndex,
-        abilityName: resolved.abilityName,
-        commandName: resolved.commandName,
-        action: resolved.action,
-        kind: resolved.kind,
-        product: resolved.product,
-        buildTimeSeconds: resolved.buildTimeSeconds,
+        abilityName: resolved?.abilityName ?? null,
+        commandName: resolved?.commandName ?? null,
+        action: resolved?.action ?? null,
+        kind: resolved?.kind ?? null,
+        product: resolved?.product ?? null,
+        buildTimeSeconds: resolved?.buildTimeSeconds ?? null,
         target: decodeTarget(payload?.m_data),
       });
     }
 
-    for (const p of players) {
-      p.commands.sort((a, b) => a.gameloop - b.gameloop);
-    }
+    for (const p of players) p.commands.sort((a, b) => a.gameloop - b.gameloop);
 
     return {
       patchVersion: formatPatchVersion(header?.m_version),
@@ -114,4 +119,3 @@ async function loadBuildCommands(replayPath, options = {}) {
 }
 
 module.exports = { loadBuildCommands };
-

@@ -51,9 +51,6 @@ async function loadAbilityLinkToName(baseBuild) {
     path.join(root, "LotV", `${baseBuild}_abilities.csv`),
     path.join(root, "HotS", `${baseBuild}_abilities.csv`),
     path.join(root, "WoL", `${baseBuild}_abilities.csv`),
-    path.join(root, "LotV", "base_abilities.csv"),
-    path.join(root, "HotS", "base_abilities.csv"),
-    path.join(root, "WoL", "base_abilities.csv"),
   ];
 
   let text = null;

@@ -59,33 +59,81 @@ export function loadReplaySummary(
   options?: LoadReplaySummaryOptions
 ): Promise<ReplaySummary>;
 
+export type ChatRecipient = "all" | "allies" | "observers" | string | null;
+
+export interface ChatMessage {
+  userId: number;
+  sourceUserId?: number;
+  gameloop: number;
+  seconds: number;
+  recipient: ChatRecipient;
+  toAllies: boolean;
+  text: string;
+}
+
+export interface Ping {
+  userId: number;
+  sourceUserId?: number;
+  gameloop: number;
+  seconds: number;
+  recipient: ChatRecipient;
+  toAllies: boolean;
+  point: unknown;
+}
+
+export interface ReplayChat {
+  patchVersion: string;
+  baseBuild: number | null;
+  build: number | null;
+  useScaledTime: boolean;
+  players: Array<{ name: string | null; race: string | null }>;
+  messages: ChatMessage[];
+  pings: Ping[];
+}
+
+export interface LoadChatOptions {
+  protocolDir?: string;
+}
+
+export function loadChat(
+  replayPath: string,
+  options?: LoadChatOptions
+): Promise<ReplayChat>;
+
+export type BuildCommandAction =
+  | "train"
+  | "build"
+  | "warpIn"
+  | "morph"
+  | "upgradeTo"
+  | "research"
+  | "evolve"
+  | "upgrade";
+
 export type BuildCommandKind = "unit" | "building" | "upgrade";
 
+export type BuildCommandTargetKind = "None" | "TargetPoint" | "TargetUnit" | "Data";
+
 export interface BuildCommandTarget {
-  kind: string;
+  kind: BuildCommandTargetKind;
   value: unknown;
 }
 
 export interface BuildCommand {
   userId: number;
+  sourceUserId?: number;
   gameloop: number;
   seconds: number;
   queued: boolean;
   abilityLink: number;
   commandIndex: number;
-  abilityName: string;
-  commandName: string;
-  action: string;
-  kind: BuildCommandKind;
+  abilityName: string | null;
+  commandName: string | null;
+  action: BuildCommandAction | null;
+  kind: BuildCommandKind | null;
   product: string | null;
   buildTimeSeconds: number | null;
   target: BuildCommandTarget | null;
-}
-
-export interface ReplayBuildCommandsPlayer {
-  name: string | null;
-  race: string | null;
-  commands: BuildCommand[];
 }
 
 export interface ReplayBuildCommands {
@@ -93,7 +141,7 @@ export interface ReplayBuildCommands {
   baseBuild: number | null;
   build: number | null;
   useScaledTime: boolean;
-  players: ReplayBuildCommandsPlayer[];
+  players: Array<{ name: string | null; race: string | null; commands: BuildCommand[] }>;
 }
 
 export interface LoadBuildCommandsOptions {

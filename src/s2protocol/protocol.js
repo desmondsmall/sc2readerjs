@@ -40,8 +40,10 @@ class Protocol {
     this.enumMembersToValue = new Map(); // enum member fullname -> number
     this.gameEventTypeById = new Map(); // number -> event struct fullname
     this.trackerEventTypeById = new Map(); // number -> event struct fullname
+    this.messageEventTypeById = new Map(); // number -> event struct fullname
     this.#indexEnums();
     this.#indexGameEventTypes();
+    this.#indexMessageEventTypes();
     this.#indexTrackerEventTypes();
   }
 
@@ -128,6 +130,11 @@ class Protocol {
     return this.decodeUserType(decoder, "NNet.Game.SDetails");
   }
 
+  decodeReplayInitData(contents) {
+    const buffer = new BitPackedBuffer(contents, "big");
+    return this.#decodeBitPackedUserType(buffer, "NNet.Replay.SInitData");
+  }
+
   decodeStructFields(decoder, fullname, fieldNames) {
     const decl = this.declsByFullname.get(fullname);
     if (!decl) throw new Error(`Unknown type: ${fullname}`);
@@ -203,6 +210,51 @@ class Protocol {
       const eventType = this.gameEventTypeById.get(eventId);
       if (!eventType) {
         throw new Error(`Unknown game event id ${eventId} for build ${this.build}`);
+      }
+
+      let payload = null;
+      const wantDecode = decodeMode === "full" && (!eventTypes || eventTypes.has(eventType));
+      if (wantDecode) payload = this.#decodeBitPackedUserType(buffer, eventType);
+      else this.#skipBitPackedUserType(buffer, eventType);
+      buffer.byteAlign();
+
+      yield { userId, gameloop, eventId, eventType, payload };
+    }
+  }
+
+  /**
+   * Iterates message events from `replay.message.events`.
+   * Yields objects: { userId, gameloop, eventId, eventType, payload }
+   *
+   * @param {Buffer} contents
+   * @param {object} [options]
+   * @param {"none"|"full"} [options.decode]
+   * @param {string[]|Set<string>|null} [options.eventTypes] Event type fullnames to decode (others are skipped)
+   */
+  *iterateMessageEvents(contents, options = {}) {
+    const buffer = new BitPackedBuffer(contents, "big");
+    const eventIdBits = this.getEnumBits("NNet.Game.EMessageId");
+    if (eventIdBits === null) throw new Error("Unable to compute EMessageId bit width");
+
+    const decodeMode = options.decode ?? "none";
+    const eventTypes =
+      options.eventTypes instanceof Set
+        ? options.eventTypes
+        : options.eventTypes
+          ? new Set(options.eventTypes)
+          : null;
+
+    let gameloop = 0;
+    while (!buffer.done()) {
+      const delta = this.#readSVarUint32BitPacked(buffer);
+      gameloop += delta;
+
+      const userId = buffer.readBits(5);
+
+      const eventId = buffer.readBits(eventIdBits);
+      const eventType = this.messageEventTypeById.get(eventId);
+      if (!eventType) {
+        throw new Error(`Unknown message event id ${eventId} for build ${this.build}`);
       }
 
       let payload = null;
@@ -358,6 +410,11 @@ class Protocol {
       case "StringType":
       case "AsciiStringType":
         return this.#readBitPackedBlob(buffer, typeInfo.bounds);
+      case "InumType": {
+        const bits = this.#inumTypeToBits(typeInfo);
+        if (bits <= 32) return buffer.readBits(bits);
+        return buffer.readBitsBigInt(bits);
+      }
       case "IntType":
       case "EnumType": {
         const { min, bits } =
@@ -442,6 +499,12 @@ class Protocol {
         const { min, bits } = this.#constraintToMinBits(typeInfo.bounds);
         const length = Number(min) + buffer.readBits(bits);
         buffer.readAlignedBytes(length);
+        return;
+      }
+      case "InumType": {
+        const bits = this.#inumTypeToBits(typeInfo);
+        if (bits <= 32) buffer.readBits(bits);
+        else buffer.readBitsBigInt(bits);
         return;
       }
       case "IntType":
@@ -579,7 +642,7 @@ class Protocol {
   }
 
   #constraintToMinBits(bounds) {
-    if (!bounds || bounds.type !== "MinMaxConstraint") {
+    if (!bounds || (bounds.type !== "MinMaxConstraint" && bounds.type !== "ExactConstraint")) {
       throw new Error("Missing MinMaxConstraint bounds for bit-packed decode");
     }
     const min = this.#evalConstraintValue(bounds.min);
@@ -623,6 +686,25 @@ class Protocol {
     return { min, bits };
   }
 
+  #inumTypeToBits(inumTypeInfo) {
+    // Bitmask enums: values are typically `1 << n`, so compute the highest bit used.
+    let max = 0n;
+    for (const f of inumTypeInfo.fields ?? []) {
+      if (f.type !== "MemberInumField") continue;
+      const v = this.#evalExpr(f.value);
+      if (v === null) continue;
+      if (v > max) max = v;
+    }
+    if (max <= 0n) return 0;
+    let bits = 0;
+    let v = max;
+    while (v > 0n) {
+      v >>= 1n;
+      bits += 1;
+    }
+    return bits;
+  }
+
   #indexEnums() {
     for (const [fullname, decl] of this.declsByFullname.entries()) {
       if (decl.type_info?.type !== "EnumType") continue;
@@ -653,6 +735,25 @@ class Protocol {
       if (eventId === undefined) continue;
 
       this.gameEventTypeById.set(eventId, fullname);
+    }
+  }
+
+  #indexMessageEventTypes() {
+    // Build messageId -> struct fullname mapping by scanning structs with a `EMESSAGEID` const.
+    for (const [fullname, decl] of this.declsByFullname.entries()) {
+      if (!fullname.startsWith("NNet.Game.")) continue;
+      if (decl.type_info?.type !== "StructType") continue;
+      const fields = decl.type_info.fields ?? [];
+      const messageIdConst = fields.find(
+        (f) => f.type === "ConstDecl" && f.name === "EMESSAGEID"
+      );
+      const ref = messageIdConst?.value;
+      if (!ref || ref.type !== "IdentifierExpr") continue;
+
+      const messageId = this.enumMembersToValue.get(ref.fullname);
+      if (messageId === undefined) continue;
+
+      this.messageEventTypeById.set(messageId, fullname);
     }
   }
 
