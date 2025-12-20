@@ -37,7 +37,6 @@ export interface ReplayDetails {
 
 export interface LoadReplaySummaryOptions {
   protocolDir?: string;
-  includeRaw?: boolean;
 }
 
 export interface ReplaySummary {
@@ -51,14 +50,9 @@ export interface ReplaySummary {
   replayType: string | number | null;
   signature: string | null;
   players: ReplayPlayerSummary[];
-  _raw?: {
-    header: ReplayHeader;
-    details: ReplayDetails;
-  };
 }
 
 export function loadReplaySummary(
   replayPath: string,
   options?: LoadReplaySummaryOptions
 ): Promise<ReplaySummary>;
-
