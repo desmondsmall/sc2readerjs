@@ -4,22 +4,32 @@
 /**
  * Replay dump playground script.
  *
- * Run from the `sc2readerjs/` directory:
- * - `node playground/dump-replay.js --no-apm --limit 10`
+ * Run from the repo root or the `sc2readerjs/` directory:
+ * - `node playground/dump-replay.js --limit 10`
+ * - `node sc2readerjs/playground/dump-replay.js --limit 10`
  *
  * Fixtures:
  * - A "fixture" is a replay file path bundled in `sc2readerjs/test_replays/` (e.g. `DH2025/*`).
  * - If you omit `replayPath`, the script loads the fixture named by `--fixture`.
  * - List fixture names: `node playground/dump-replay.js --list-fixtures`
- * - Use a fixture: `node playground/dump-replay.js --fixture dh2025_finals_g2 --no-apm`
+ * - Use a fixture: `node playground/dump-replay.js --fixture dh2025_finals_g2`
  *
  * Custom replays:
- * - Pass an explicit replay path (relative to `sc2readerjs/` or absolute):
+ * - Pass an explicit replay path (relative to the current directory or absolute):
  *   `node playground/dump-replay.js path/to/MyReplay.SC2Replay --full`
  */
 
 const path = require("path");
-const { loadReplaySummary, loadBuildCommands, loadChat } = require("../src");
+const fs = require("fs");
+const {
+  loadReplaySummary,
+  loadBuildCommands,
+  loadChat,
+  loadEngagements,
+  loadEcoTimeline,
+} = require("../src");
+
+const SC2READERJS_ROOT = path.resolve(__dirname, "..");
 
 const FIXTURES = {
   dh2025_finals_g2: "test_replays/DH2025/Finals - Solar vs Maru - G2 - Ultralove.SC2Replay",
@@ -28,15 +38,34 @@ const FIXTURES = {
   dh2025_qm_classic_clem_g1: "test_replays/DH2025/QM - Classic vs Clem - G1 - Torches.SC2Replay",
 };
 
+function resolveReplayPath(inputPath) {
+  if (path.isAbsolute(inputPath)) return inputPath;
+
+  const fromCwd = path.resolve(process.cwd(), inputPath);
+  if (fs.existsSync(fromCwd)) return fromCwd;
+
+  const fromSc2readerjsRoot = path.resolve(SC2READERJS_ROOT, inputPath);
+  if (fs.existsSync(fromSc2readerjsRoot)) return fromSc2readerjsRoot;
+
+  const err = new Error(
+    `Replay file not found.\n` +
+      `Tried:\n` +
+      `- ${fromCwd}\n` +
+      `- ${fromSc2readerjsRoot}\n`
+  );
+  err.code = "ENOENT";
+  throw err;
+}
+
 function usage() {
   console.log(`Usage:
   node playground/dump-replay.js [replayPath] [--fixture name] [--list-fixtures]
-                              [--limit N] [--no-apm] [--full]
+                              [--limit N] [--no-engagements] [--eco] [--full]
 
 Defaults:
   replayPath: (fixture) dh2025_finals_g2
   --fixture dh2025_finals_g2
-  --limit 25  (limits displayed build commands + chat)
+  --limit 25  (limits displayed build commands + chat + engagements)
 `);
 }
 
@@ -46,7 +75,8 @@ function parseArgs(argv) {
     fixture: "dh2025_finals_g2",
     listFixtures: false,
     limit: 25,
-    includeApm: true,
+    includeEngagements: true,
+    eco: false,
     full: false,
   };
   const rest = [];
@@ -62,8 +92,12 @@ function parseArgs(argv) {
       args.fixture = argv[++i] ?? null;
       continue;
     }
-    if (a === "--no-apm") {
-      args.includeApm = false;
+    if (a === "--no-engagements") {
+      args.includeEngagements = false;
+      continue;
+    }
+    if (a === "--eco") {
+      args.eco = true;
       continue;
     }
     if (a === "--full") {
@@ -99,7 +133,7 @@ async function main() {
   }
 
   const replayPath = args.replayPath
-    ? path.resolve(process.cwd(), args.replayPath)
+    ? resolveReplayPath(args.replayPath)
     : (() => {
         const rel = FIXTURES[args.fixture];
         if (!rel) {
@@ -107,12 +141,17 @@ async function main() {
             `Unknown fixture "${args.fixture}". Use --list-fixtures to see available names.`
           );
         }
-        return path.resolve(process.cwd(), rel);
+        return resolveReplayPath(path.resolve(SC2READERJS_ROOT, rel));
       })();
 
-  const summary = await loadReplaySummary(replayPath, { includeApm: args.includeApm });
+  const summary = await loadReplaySummary(replayPath);
   const buildCommands = await loadBuildCommands(replayPath);
   const chat = await loadChat(replayPath);
+  const engagements =
+    args.includeEngagements || args.full
+      ? await loadEngagements(replayPath, { includeTimeline: args.full })
+      : null;
+  const ecoTimeline = args.eco || args.full ? await loadEcoTimeline(replayPath) : null;
 
   console.log("=== Summary ===");
   console.log(JSON.stringify(summary, null, 2));
@@ -122,6 +161,14 @@ async function main() {
     console.log(JSON.stringify(buildCommands, null, 2));
     console.log("\n=== Chat ===");
     console.log(JSON.stringify(chat, null, 2));
+    if (engagements) {
+      console.log("\n=== Engagements ===");
+      console.log(JSON.stringify(engagements, null, 2));
+    }
+    if (ecoTimeline) {
+      console.log("\n=== Eco Timeline ===");
+      console.log(JSON.stringify(ecoTimeline, null, 2));
+    }
     return;
   }
 
@@ -146,6 +193,27 @@ async function main() {
     totalPings: chat.pings.length,
   };
   console.log(JSON.stringify(trimmedChat, null, 2));
+
+  if (engagements) {
+    console.log("\n=== Engagements ===");
+    const trimmedEngagements = {
+      ...engagements,
+      engagements: engagements.engagements.slice(0, args.limit),
+      totalEngagements: engagements.engagements.length,
+      armyValueTimeline: undefined,
+    };
+    console.log(JSON.stringify(trimmedEngagements, null, 2));
+  }
+
+  if (ecoTimeline) {
+    console.log("\n=== Eco Timeline ===");
+    const trimmedEco = {
+      ...ecoTimeline,
+      timeline: ecoTimeline.timeline.map((series) => series.slice(0, args.limit)),
+      totalSamples: ecoTimeline.timeline.map((series) => series.length),
+    };
+    console.log(JSON.stringify(trimmedEco, null, 2));
+  }
 }
 
 main().catch((err) => {

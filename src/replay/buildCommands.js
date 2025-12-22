@@ -9,7 +9,6 @@ const { buildEventUserIdToPlayerIndexMap } = require("./playerMapping");
 /**
  * @typedef {object} LoadBuildCommandsOptions
  * @property {string} [protocolDir]
- * @property {boolean} [includeApm] Not used; accepted for symmetry with summary.
  * @property {boolean} [includeUnresolved] When true, includes non-build/non-resolved `SCmdEvent`s (debugging).
  */
 

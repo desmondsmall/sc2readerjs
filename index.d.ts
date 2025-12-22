@@ -20,7 +20,7 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: string | number | null;
   teamId: number | null;
-  apm: number | null;
+  apm: number;
 }
 
 export interface ReplayDetails {
@@ -38,7 +38,6 @@ export interface ReplayDetails {
 
 export interface LoadReplaySummaryOptions {
   protocolDir?: string;
-  includeApm?: boolean;
 }
 
 export interface ReplaySummary {
@@ -155,3 +154,90 @@ export function loadBuildCommands(
   replayPath: string,
   options?: LoadBuildCommandsOptions
 ): Promise<ReplayBuildCommands>;
+
+export interface EngagementLoss {
+  count: number;
+  minerals: number;
+  vespene: number;
+  supply: number;
+}
+
+export interface EngagementPlayerLoss {
+  userId: number;
+  army: EngagementLoss;
+  workers: EngagementLoss;
+  buildings: EngagementLoss;
+  total: EngagementLoss;
+}
+
+export interface Engagement {
+  id: number;
+  startGameloop: number;
+  endGameloop: number;
+  startSeconds: number;
+  endSeconds: number;
+  center: { x: number; y: number };
+  radius: number;
+  players: EngagementPlayerLoss[];
+  totalValue: number;
+  winnerUserId: number | null;
+}
+
+export interface ArmyValueSample {
+  gameloop: number;
+  seconds: number;
+  minerals: number;
+  vespene: number;
+  total: number;
+}
+
+export interface ReplayEngagements {
+  patchVersion: string;
+  baseBuild: number | null;
+  build: number | null;
+  useScaledTime: boolean;
+  players: Array<{ userId: number; name: string | null; race: string | null }>;
+  engagements: Engagement[];
+  armyValueTimeline?: Array<ArmyValueSample[]>;
+}
+
+export interface LoadEngagementsOptions {
+  protocolDir?: string;
+  maxGapSeconds?: number;
+  maxDistance?: number;
+  minArmyDeaths?: number;
+  minTotalValue?: number;
+  includeTimeline?: boolean;
+}
+
+export function loadEngagements(
+  replayPath: string,
+  options?: LoadEngagementsOptions
+): Promise<ReplayEngagements>;
+
+export interface EcoSample {
+  gameloop: number;
+  seconds: number;
+  workers: number;
+  supplyUsed: number;
+  supplyCap: number;
+  bases: number;
+}
+
+export interface ReplayEcoTimeline {
+  patchVersion: string;
+  baseBuild: number | null;
+  build: number | null;
+  useScaledTime: boolean;
+  players: Array<{ userId: number; name: string | null; race: string | null }>;
+  timeline: Array<EcoSample[]>;
+}
+
+export interface LoadEcoTimelineOptions {
+  protocolDir?: string;
+}
+
+export function loadEcoTimeline(
+  replayPath: string,
+  options?: LoadEcoTimelineOptions
+): Promise<ReplayEcoTimeline>;

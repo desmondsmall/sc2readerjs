@@ -45,14 +45,12 @@ async function loadReplaySummary(replayPath, options = {}) {
         race: decodeBufferToUtf8String(p?.m_race),
         result: protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result),
         teamId: p?.m_teamId ?? null,
-        apm: null,
+        apm: 0,
       })) ?? [];
 
-    if (options.includeApm !== false) {
-      const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
-      for (let i = 0; i < players.length; i++) {
-        players[i].apm = apmByUserId[i] ?? 0;
-      }
+    const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
+    for (let i = 0; i < players.length; i++) {
+      players[i].apm = apmByUserId[i] ?? 0;
     }
 
     return {
