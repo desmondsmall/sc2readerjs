@@ -60,12 +60,21 @@ function resolveReplayPath(inputPath) {
 function usage() {
   console.log(`Usage:
   node playground/dump-replay.js [replayPath] [--fixture name] [--list-fixtures]
-                              [--limit N] [--no-engagements] [--eco] [--full]
+                              [--limit N] [--full] [--copy]
+                              [--summary] [--build] [--chat] [--engagements] [--eco]
+                              [--no-engagements]
 
 Defaults:
   replayPath: (fixture) dh2025_finals_g2
   --fixture dh2025_finals_g2
-  --limit 25  (limits displayed build commands + chat + engagements)
+  --limit 25  (limits displayed build commands + chat + engagements + eco)
+
+Section selection:
+  - If you pass any of: --summary/--build/--chat/--engagements/--eco, only those sections print.
+  - Examples:
+    - summary only: node playground/dump-replay.js --summary
+    - eco only: node playground/dump-replay.js --eco
+    - summary + eco: node playground/dump-replay.js --summary --eco
 `);
 }
 
@@ -76,8 +85,14 @@ function parseArgs(argv) {
     listFixtures: false,
     limit: 25,
     includeEngagements: true,
-    eco: false,
     full: false,
+    copy: false,
+    // section selection
+    summary: false,
+    build: false,
+    chat: false,
+    engagements: false,
+    eco: false,
   };
   const rest = [];
 
@@ -96,12 +111,32 @@ function parseArgs(argv) {
       args.includeEngagements = false;
       continue;
     }
+    if (a === "--summary") {
+      args.summary = true;
+      continue;
+    }
+    if (a === "--build" || a === "--build-commands") {
+      args.build = true;
+      continue;
+    }
+    if (a === "--chat") {
+      args.chat = true;
+      continue;
+    }
+    if (a === "--engagements") {
+      args.engagements = true;
+      continue;
+    }
     if (a === "--eco") {
       args.eco = true;
       continue;
     }
     if (a === "--full") {
       args.full = true;
+      continue;
+    }
+    if (a === "--copy" || a === "--clipboard") {
+      args.copy = true;
       continue;
     }
     if (a === "--limit") {
@@ -115,6 +150,137 @@ function parseArgs(argv) {
 
   args.replayPath = rest[0] ?? null;
   return args;
+}
+
+function selectedSections(args) {
+  const explicitlySelected =
+    args.summary || args.build || args.chat || args.engagements || args.eco;
+
+  if (explicitlySelected) {
+    return {
+      summary: args.summary,
+      build: args.build,
+      chat: args.chat,
+      engagements: args.engagements,
+      eco: args.eco,
+    };
+  }
+
+  // Default behavior when no section flags are provided.
+  return {
+    summary: true,
+    build: true,
+    chat: true,
+    engagements: args.includeEngagements || args.full,
+    eco: args.eco || args.full,
+  };
+}
+
+function formatSummaryForOutput(summary) {
+  if (!summary) return summary;
+  const players = Array.isArray(summary.players) ? summary.players : [];
+
+  const stripBuildFromPatchVersion = (patchVersion) => {
+    if (typeof patchVersion !== "string") return patchVersion;
+    const parts = patchVersion.split(".");
+    if (parts.length >= 3) return parts.slice(0, 3).join(".");
+    return patchVersion;
+  };
+
+  const raceCode = (race) => {
+    if (race == null) return null;
+    const s = String(race).trim().toLowerCase();
+    if (!s) return null;
+    if (s.startsWith("z")) return "z";
+    if (s.startsWith("t")) return "t";
+    if (s.startsWith("p")) return "p";
+    return null;
+  };
+
+  const normalizeResult = (result) => {
+    if (result == null) return null;
+    if (typeof result === "string") {
+      const s = result.trim();
+      if (!s) return null;
+      const lower = s.toLowerCase();
+      if (lower === "win" || lower === "loss" || lower === "tie" || lower === "unknown") return lower;
+
+      // Typical value: "NNet.Game.EResultDetails.e_win"
+      const last = s.split(".").pop() || s;
+      return last.startsWith("e_") ? last.slice(2) : last;
+    }
+    return String(result);
+  };
+
+  return {
+    patchVersion: stripBuildFromPatchVersion(summary.patchVersion),
+    build: summary.build ?? null,
+    durationSeconds: Number.isFinite(summary.durationSeconds)
+      ? Math.round(summary.durationSeconds)
+      : summary.durationSeconds,
+    useScaledTime: summary.useScaledTime,
+    mapTitle: summary.mapTitle,
+    players: players.map((p) => ({
+      name: p.name ?? null,
+      race: p.race ?? null,
+      result: normalizeResult(p.result),
+      teamId: p.teamId ?? null,
+      apm: Number.isFinite(p.apm) ? Math.round(p.apm) : p.apm,
+    })),
+  };
+}
+
+async function copyToClipboard(text) {
+  const { spawn } = require("child_process");
+
+  const candidates =
+    process.platform === "darwin"
+      ? [{ cmd: "pbcopy", args: [] }]
+      : process.platform === "win32"
+        ? [{ cmd: "clip", args: [] }]
+        : [
+            { cmd: "xclip", args: ["-selection", "clipboard"] },
+            { cmd: "xsel", args: ["--clipboard", "--input"] },
+          ];
+
+  /** @type {Error[]} */
+  const errors = [];
+  for (const { cmd, args } of candidates) {
+    try {
+      await new Promise((resolve, reject) => {
+        const child = spawn(cmd, args, { stdio: ["pipe", "ignore", "pipe"] });
+        const err = [];
+        child.stderr.on("data", (c) => err.push(c));
+        child.on("error", reject);
+        child.on("close", (code) => {
+          if (code !== 0) {
+            reject(
+              new Error(
+                `${cmd} exited with code ${code}: ${Buffer.concat(err).toString("utf8")}`.trim()
+              )
+            );
+            return;
+          }
+          resolve();
+        });
+        child.stdin.end(text);
+      });
+      return;
+    } catch (e) {
+      errors.push(e instanceof Error ? e : new Error(String(e)));
+    }
+  }
+
+  const suffix =
+    process.platform === "linux"
+      ? "Install `xclip` or `xsel`, or run without `--copy`."
+      : "Run without `--copy`.";
+  const message =
+    `Failed to copy to clipboard. ${suffix}\n` +
+    errors.map((e) => `- ${e.message}`).join("\n");
+  const err = new Error(message);
+  err.code = "CLIPBOARD_ERROR";
+  throw err;
 }
 
 async function main() {
@@ -144,76 +310,119 @@ async function main() {
         return resolveReplayPath(path.resolve(SC2READERJS_ROOT, rel));
       })();
 
-  const summary = await loadReplaySummary(replayPath);
-  const buildCommands = await loadBuildCommands(replayPath);
-  const chat = await loadChat(replayPath);
-  const engagements =
-    args.includeEngagements || args.full
-      ? await loadEngagements(replayPath, { includeTimeline: args.full })
-      : null;
-  const ecoTimeline = args.eco || args.full ? await loadEcoTimeline(replayPath) : null;
+  const sections = selectedSections(args);
 
-  console.log("=== Summary ===");
-  console.log(JSON.stringify(summary, null, 2));
+  const summary = sections.summary ? await loadReplaySummary(replayPath) : null;
+  const buildCommands = sections.build ? await loadBuildCommands(replayPath) : null;
+  const chat = sections.chat ? await loadChat(replayPath) : null;
+  const engagements = sections.engagements
+    ? await loadEngagements(replayPath, { includeTimeline: args.full })
+    : null;
+  const ecoTimeline = sections.eco ? await loadEcoTimeline(replayPath) : null;
 
-  console.log("\n=== Build Commands ===");
-  if (args.full) {
-    console.log(JSON.stringify(buildCommands, null, 2));
-    console.log("\n=== Chat ===");
-    console.log(JSON.stringify(chat, null, 2));
-    if (engagements) {
-      console.log("\n=== Engagements ===");
-      console.log(JSON.stringify(engagements, null, 2));
-    }
-    if (ecoTimeline) {
-      console.log("\n=== Eco Timeline ===");
-      console.log(JSON.stringify(ecoTimeline, null, 2));
-    }
-    return;
-  }
+  /** @type {string[]} */
+  const output = [];
+  const out = (s = "") => output.push(String(s));
 
-  const trimmedCommands = {
-    ...buildCommands,
-    players: buildCommands.players.map((p) => ({
-      name: p.name,
-      race: p.race,
-      commands: p.commands.slice(0, args.limit),
-      totalCommands: p.commands.length,
-      totalResolvedCommands: p.commands.filter((c) => c.commandName !== null).length,
-    })),
+  const stripBuildFromPatchVersion = (patchVersion) => {
+    if (typeof patchVersion !== "string") return patchVersion;
+    const parts = patchVersion.split(".");
+    if (parts.length >= 3) return parts.slice(0, 3).join(".");
+    return patchVersion;
   };
-  console.log(JSON.stringify(trimmedCommands, null, 2));
 
-  console.log("\n=== Chat ===");
-  const trimmedChat = {
-    ...chat,
-    messages: chat.messages.slice(0, args.limit),
-    totalMessages: chat.messages.length,
-    pings: chat.pings.slice(0, args.limit),
-    totalPings: chat.pings.length,
+  const roundSecondsFieldsDeep = (value) => {
+    const ROUND_KEYS = new Set(["seconds", "startSeconds", "endSeconds", "durationSeconds"]);
+    if (Array.isArray(value)) return value.map(roundSecondsFieldsDeep);
+    if (!value || typeof value !== "object") return value;
+    /** @type {Record<string, unknown>} */
+    const outObj = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (ROUND_KEYS.has(k) && typeof v === "number" && Number.isFinite(v)) {
+        outObj[k] = Math.round(v);
+      } else {
+        outObj[k] = roundSecondsFieldsDeep(v);
+      }
+    }
+    return outObj;
   };
-  console.log(JSON.stringify(trimmedChat, null, 2));
 
-  if (engagements) {
-    console.log("\n=== Engagements ===");
-    const trimmedEngagements = {
-      ...engagements,
-      engagements: engagements.engagements.slice(0, args.limit),
-      totalEngagements: engagements.engagements.length,
-      armyValueTimeline: undefined,
-    };
-    console.log(JSON.stringify(trimmedEngagements, null, 2));
+  const normalizeOutputForSection = (data) => {
+    if (!data || typeof data !== "object") return data;
+    const out = { ...data };
+    if ("patchVersion" in out) out.patchVersion = stripBuildFromPatchVersion(out.patchVersion);
+    if ("baseBuild" in out) delete out.baseBuild;
+    return roundSecondsFieldsDeep(out);
+  };
+
+  function emitSection(name, data) {
+    if (!data) return;
+    if (output.length > 0) out("");
+    out(`=== ${name} ===`);
+    out(JSON.stringify(normalizeOutputForSection(data), null, 2));
   }
 
-  if (ecoTimeline) {
-    console.log("\n=== Eco Timeline ===");
-    const trimmedEco = {
-      ...ecoTimeline,
-      timeline: ecoTimeline.timeline.map((series) => series.slice(0, args.limit)),
-      totalSamples: ecoTimeline.timeline.map((series) => series.length),
-    };
-    console.log(JSON.stringify(trimmedEco, null, 2));
+  if (sections.summary) emitSection("Summary", formatSummaryForOutput(summary));
+
+  if (sections.build) {
+    const data =
+      args.full
+        ? buildCommands
+        : {
+            ...buildCommands,
+            players: buildCommands.players.map((p) => ({
+              name: p.name,
+              race: p.race,
+              commands: p.commands.slice(0, args.limit),
+              totalCommands: p.commands.length,
+              totalResolvedCommands: p.commands.filter((c) => c.commandName !== null).length,
+            })),
+          };
+    emitSection("Build Commands", data);
   }
+
+  if (sections.chat) {
+    const data =
+      args.full
+        ? chat
+        : {
+            ...chat,
+            messages: chat.messages.slice(0, args.limit),
+            totalMessages: chat.messages.length,
+            pings: chat.pings.slice(0, args.limit),
+            totalPings: chat.pings.length,
+          };
+    emitSection("Chat", data);
+  }
+
+  if (sections.engagements) {
+    const data =
+      args.full
+        ? engagements
+        : {
+            ...engagements,
+            engagements: engagements.engagements.slice(0, args.limit),
+            totalEngagements: engagements.engagements.length,
+            armyValueTimeline: undefined,
+          };
+    emitSection("Engagements", data);
+  }
+
+  if (sections.eco) {
+    const data =
+      args.full
+        ? ecoTimeline
+        : {
+            ...ecoTimeline,
+            timeline: ecoTimeline.timeline.map((series) => series.slice(0, args.limit)),
+            totalSamples: ecoTimeline.timeline.map((series) => series.length),
+          };
+    emitSection("Eco Timeline", data);
+  }
+
+  const text = output.join("\n") + "\n";
+  process.stdout.write(text);
+  if (args.copy) await copyToClipboard(text);
 }
 
 main().catch((err) => {

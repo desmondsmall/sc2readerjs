@@ -71,19 +71,68 @@ async function loadEcoTimeline(replayPath, options = {}) {
       "hive",
     ]);
 
-    /** @type {Map<string, { unitTypeName: string|null, controlPlayerId: number|null, upkeepPlayerId: number|null }>} */
+    // `m_x`/`m_y` are the tracker event position fields for units; we use them to cluster
+    // town-hall locations and compute an "expansions" count that doesn't overcount macro hatcheries.
+    const EXPANSION_CLUSTER_RADIUS = 12;
+    const EXPANSION_CLUSTER_RADIUS2 = EXPANSION_CLUSTER_RADIUS * EXPANSION_CLUSTER_RADIUS;
+
+    /** @type {Map<string, { unitTypeName: string|null, controlPlayerId: number|null, upkeepPlayerId: number|null, x: number|null, y: number|null }>} */
     const units = new Map();
 
-    /** @type {Map<string, { userId: number|null, isBase: boolean }>} */
+    /** @type {Map<string, { userId: number|null, isBase: boolean, clusterIndex: number|null }>} */
     const baseByTag = new Map();
 
     /** @type {number[]} */
     const baseCounts = players.map(() => 0);
 
-    /** @type {Array<Array<{ gameloop: number, seconds: number, workers: number, supplyUsed: number, supplyCap: number, bases: number }>>} */
+    /** @type {number[]} */
+    const expansionCounts = players.map(() => 0);
+
+    /** @type {Array<Array<{ x: number, y: number, n: number, activeCount: number }>>} */
+    const expansionClustersByUserId = players.map(() => []);
+
+    /** @type {Array<Array<{ gameloop: number, seconds: number, workers: number, supplyUsed: number, supplyCap: number, bases: number, expansions: number }>>} */
     const timeline = players.map(() => []);
 
-    const applyBaseState = (key, unitTypeName, ownerPlayerId) => {
+    const findOrCreateExpansionCluster = (userId, x, y) => {
+      const clusters = expansionClustersByUserId[userId];
+      for (let i = 0; i < clusters.length; i++) {
+        const cl = clusters[i];
+        const dx = x - cl.x;
+        const dy = y - cl.y;
+        if (dx * dx + dy * dy <= EXPANSION_CLUSTER_RADIUS2) {
+          // update centroid
+          cl.n += 1;
+          cl.x += (x - cl.x) / cl.n;
+          cl.y += (y - cl.y) / cl.n;
+          return i;
+        }
+      }
+      clusters.push({ x, y, n: 1, activeCount: 0 });
+      return clusters.length - 1;
+    };
+
+    const decCluster = (userId, clusterIndex) => {
+      const clusters = expansionClustersByUserId[userId];
+      const cl = clusters[clusterIndex];
+      if (!cl) return;
+      const prev = cl.activeCount;
+      cl.activeCount = Math.max(0, cl.activeCount - 1);
+      if (prev > 0 && cl.activeCount === 0) {
+        expansionCounts[userId] = Math.max(0, expansionCounts[userId] - 1);
+      }
+    };
+
+    const incCluster = (userId, clusterIndex) => {
+      const clusters = expansionClustersByUserId[userId];
+      const cl = clusters[clusterIndex];
+      if (!cl) return;
+      const prev = cl.activeCount;
+      cl.activeCount += 1;
+      if (prev === 0 && cl.activeCount > 0) expansionCounts[userId] += 1;
+    };
+
+    const applyBaseState = (key, unitTypeName, ownerPlayerId, x, y) => {
       const typeLower = unitTypeName ? String(unitTypeName).toLowerCase() : null;
       const isBase = Boolean(typeLower && baseTypes.has(typeLower));
 
@@ -91,11 +140,44 @@ async function loadEcoTimeline(replayPath, options = {}) {
         Number.isFinite(ownerPlayerId) && ownerPlayerId > 0 ? Number(ownerPlayerId) - 1 : null;
       const normalizedUserId = userId !== null && userId >= 0 && userId < players.length ? userId : null;
 
-      const prev = baseByTag.get(key) ?? { userId: null, isBase: false };
-      if (prev.isBase && prev.userId !== null) baseCounts[prev.userId] = Math.max(0, baseCounts[prev.userId] - 1);
-      if (isBase && normalizedUserId !== null) baseCounts[normalizedUserId] += 1;
+      const prev = baseByTag.get(key) ?? { userId: null, isBase: false, clusterIndex: null };
 
-      baseByTag.set(key, { userId: normalizedUserId, isBase });
+      // If base-ness and ownership didn't change:
+      // - keep counts stable
+      // - but we may still need to assign a cluster if we didn't have coordinates yet.
+      if (prev.isBase === isBase && prev.userId === normalizedUserId) {
+        if (
+          isBase &&
+          normalizedUserId !== null &&
+          prev.clusterIndex === null &&
+          Number.isFinite(x) &&
+          Number.isFinite(y)
+        ) {
+          const clusterIndex = findOrCreateExpansionCluster(normalizedUserId, Number(x), Number(y));
+          incCluster(normalizedUserId, clusterIndex);
+          baseByTag.set(key, { userId: normalizedUserId, isBase, clusterIndex });
+          return;
+        }
+        baseByTag.set(key, { ...prev });
+        return;
+      }
+
+      if (prev.isBase && prev.userId !== null) {
+        baseCounts[prev.userId] = Math.max(0, baseCounts[prev.userId] - 1);
+        if (prev.clusterIndex !== null) decCluster(prev.userId, prev.clusterIndex);
+      }
+
+      let clusterIndex = null;
+      if (isBase && normalizedUserId !== null) {
+        baseCounts[normalizedUserId] += 1;
+
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          clusterIndex = findOrCreateExpansionCluster(normalizedUserId, Number(x), Number(y));
+          incCluster(normalizedUserId, clusterIndex);
+        }
+      }
+
+      baseByTag.set(key, { userId: normalizedUserId, isBase, clusterIndex });
     };
 
     const decodeUnitTypeName = (value) => decodeBufferToUtf8String(value);
@@ -145,7 +227,12 @@ async function loadEcoTimeline(replayPath, options = {}) {
           unitTypeName: null,
           controlPlayerId: null,
           upkeepPlayerId: null,
+          x: null,
+          y: null,
         };
+
+        const x = Number.isFinite(payload.m_x) ? Number(payload.m_x) : null;
+        const y = Number.isFinite(payload.m_y) ? Number(payload.m_y) : null;
 
         const next = {
           unitTypeName: unitTypeName ?? existing.unitTypeName,
@@ -155,12 +242,14 @@ async function loadEcoTimeline(replayPath, options = {}) {
               : existing.controlPlayerId,
           upkeepPlayerId:
             Number.isFinite(upkeepPlayerId) && upkeepPlayerId >= 0 ? upkeepPlayerId : existing.upkeepPlayerId,
+          x: x ?? existing.x,
+          y: y ?? existing.y,
         };
 
         units.set(key, next);
 
         const ownerPlayerId = next.upkeepPlayerId ?? next.controlPlayerId ?? null;
-        applyBaseState(key, next.unitTypeName, ownerPlayerId);
+        applyBaseState(key, next.unitTypeName, ownerPlayerId, next.x, next.y);
       } else if (ev.eventType === UNIT_DIED) {
         const tagIndex = Number(payload.m_unitTagIndex ?? -1);
         const tagRecycle = Number(payload.m_unitTagRecycle ?? -1);
@@ -171,6 +260,7 @@ async function loadEcoTimeline(replayPath, options = {}) {
         const prev = baseByTag.get(key) ?? null;
         if (prev?.isBase && prev.userId !== null) {
           baseCounts[prev.userId] = Math.max(0, baseCounts[prev.userId] - 1);
+          if (prev.clusterIndex !== null) decCluster(prev.userId, prev.clusterIndex);
         }
         baseByTag.delete(key);
         units.delete(key);
@@ -195,6 +285,7 @@ async function loadEcoTimeline(replayPath, options = {}) {
           supplyUsed: Number.isFinite(supplyUsed) ? supplyUsed : 0,
           supplyCap: Number.isFinite(supplyCap) ? supplyCap : 0,
           bases: baseCounts[userId] ?? 0,
+          expansions: expansionCounts[userId] ?? 0,
         });
       }
     }
@@ -215,4 +306,3 @@ async function loadEcoTimeline(replayPath, options = {}) {
 }
 
 module.exports = { loadEcoTimeline };
-

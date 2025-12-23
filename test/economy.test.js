@@ -27,11 +27,12 @@ test("loads eco timeline samples (workers/supply/bases) from tracker stats", asy
       assert.ok(Number.isFinite(s.supplyUsed));
       assert.ok(Number.isFinite(s.supplyCap));
       assert.ok(Number.isFinite(s.bases));
+      assert.ok(Number.isFinite(s.expansions));
       assert.ok(s.workers >= 0);
       assert.ok(s.supplyUsed >= 0);
       assert.ok(s.supplyCap >= 0);
       assert.ok(s.bases >= 0);
+      assert.ok(s.expansions >= 0);
     }
   }
 });
-

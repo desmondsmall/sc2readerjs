@@ -222,6 +222,7 @@ export interface EcoSample {
   supplyUsed: number;
   supplyCap: number;
   bases: number;
+  expansions: number;
 }
 
 export interface ReplayEcoTimeline {

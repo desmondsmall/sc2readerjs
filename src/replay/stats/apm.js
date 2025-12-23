@@ -1,6 +1,7 @@
 // @ts-check
 
 const { gameLoopsToSeconds } = require("../time");
+const { buildEventUserIdToPlayerIndexMap } = require("../playerMapping");
 
 /**
  * @param {import("../decode").ReplayDecodeContext} ctx
@@ -16,10 +17,12 @@ async function computeAverageApmByUserId(ctx, playerCount) {
   if (!Number.isFinite(minutes) || minutes <= 0) return new Array(playerCount).fill(0);
 
   const counts = new Array(playerCount).fill(0);
+  const eventUserIdToPlayerIndex = await buildEventUserIdToPlayerIndexMap(ctx, playerCount);
 
   const gameEvents = await ctx.readFile("replay.game.events");
   for (const ev of ctx.protocol.iterateGameEvents(gameEvents)) {
-    if (ev.userId < 0 || ev.userId >= playerCount) continue;
+    const playerIndex = eventUserIdToPlayerIndex.get(ev.userId);
+    if (playerIndex === undefined || playerIndex < 0 || playerIndex >= playerCount) continue;
     // A minimal approximation of "actions" for APM:
     // - cmd (abilities / right click / etc.)
     // - selection changes
@@ -29,7 +32,7 @@ async function computeAverageApmByUserId(ctx, playerCount) {
       ev.eventType.endsWith(".SSelectionDeltaEvent") ||
       ev.eventType.endsWith(".SControlGroupUpdateEvent")
     ) {
-      counts[ev.userId] += 1;
+      counts[playerIndex] += 1;
     }
   }
 
