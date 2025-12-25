@@ -1,12 +1,28 @@
 {
   "name": "sc2readerjs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Extracts game data from Starcraft II replay files.",
   "license": "MIT",
   "private": false,
+  "author": "Desmond Small",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/desmond_small/sc2readerjs"
+  },
   "type": "commonjs",
   "main": "src/index.js",
   "types": "index.d.ts",
+  "keywords": [
+    "starcraft",
+    "starcraft2",
+    "sc2",
+    "replay",
+    "s2protocol",
+    "mpq",
+    "apm",
+    "build-order",
+    "analysis"
+  ],
   "files": [
     "src",
     "index.d.ts"
