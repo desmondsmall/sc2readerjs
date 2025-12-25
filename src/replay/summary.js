@@ -14,7 +14,7 @@
  */
 
 const { decodeReplay } = require("./decode");
-const { decodeBufferToUtf8String, normalizeFourCC } = require("../util/text");
+const { decodeBufferToUtf8String } = require("../util/text");
 const { computeAverageApmByUserId } = require("./stats/apm");
 const { gameLoopsToSeconds } = require("./time");
 
@@ -27,6 +27,41 @@ function formatPatchVersion(version) {
   const revision = version?.m_revision ?? 0;
   const build = version?.m_build ?? 0;
   return `${major}.${minor}.${revision}.${build}`;
+}
+
+function normalizeReplayType(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number") {
+    if (raw === 0) return "campaign";
+    if (raw === 1) return "challenge";
+    if (raw === 2) return "multiplayer";
+    if (raw === 3) return "custom";
+    return String(raw);
+  }
+  const s = String(raw);
+  const last = s.split(".").pop() || s;
+  const trimmed = last.startsWith("e_") ? last.slice(2) : last;
+  return trimmed || null;
+}
+
+/**
+ * Derive a human-readable team format (e.g., "1v1", "2v2", "ffa-4") from player teamIds.
+ * Falls back to null when teamIds are missing or inconsistent.
+ * @param {Array<{teamId: number | null}>} players
+ */
+function inferGameType(players) {
+  const countsByTeam = new Map();
+  for (const p of players) {
+    if (p.teamId === null || p.teamId === undefined) continue;
+    countsByTeam.set(p.teamId, (countsByTeam.get(p.teamId) ?? 0) + 1);
+  }
+  if (countsByTeam.size === 0) return null;
+
+  const counts = Array.from(countsByTeam.values()).sort((a, b) => b - a);
+  if (counts.length > 2 && counts.every((c) => c === 1)) {
+    return `ffa-${counts.length}`;
+  }
+  return counts.join("v");
 }
 
 /**
@@ -53,19 +88,26 @@ async function loadReplaySummary(replayPath, options = {}) {
       players[i].apm = apmByUserId[i] ?? 0;
     }
 
+    const timeUtcSeconds = details?.m_timeUTC;
+    const playedAt =
+      typeof timeUtcSeconds === "number" && Number.isFinite(timeUtcSeconds)
+        ? new Date(timeUtcSeconds * 1000).toISOString()
+        : null;
+
     return {
       patchVersion: formatPatchVersion(header?.m_version),
-      baseBuild: header?.m_version?.m_baseBuild ?? null,
       build: header?.m_version?.m_build ?? null,
       durationSeconds: gameLoopsToSeconds(
         header?.m_elapsedGameLoops,
         header?.m_useScaledTime
       ),
       useScaledTime: Boolean(header?.m_useScaledTime),
+      playedAt,
+      gameType: inferGameType(players),
       mapTitle: decodeBufferToUtf8String(details?.m_title),
-      mapFileName: decodeBufferToUtf8String(details?.m_mapFileName),
-      replayType: protocol.enumValueToName("NNet.Replay.EReplayType", header?.m_type),
-      signature: normalizeFourCC(header?.m_signature),
+      replayType: normalizeReplayType(
+        protocol.enumValueToName("NNet.Replay.EReplayType", header?.m_type) ?? header?.m_type
+      ),
       players,
     };
   } finally {

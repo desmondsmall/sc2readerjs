@@ -176,60 +176,6 @@ function selectedSections(args) {
   };
 }
 
-function formatSummaryForOutput(summary) {
-  if (!summary) return summary;
-  const players = Array.isArray(summary.players) ? summary.players : [];
-
-  const stripBuildFromPatchVersion = (patchVersion) => {
-    if (typeof patchVersion !== "string") return patchVersion;
-    const parts = patchVersion.split(".");
-    if (parts.length >= 3) return parts.slice(0, 3).join(".");
-    return patchVersion;
-  };
-
-  const raceCode = (race) => {
-    if (race == null) return null;
-    const s = String(race).trim().toLowerCase();
-    if (!s) return null;
-    if (s.startsWith("z")) return "z";
-    if (s.startsWith("t")) return "t";
-    if (s.startsWith("p")) return "p";
-    return null;
-  };
-
-  const normalizeResult = (result) => {
-    if (result == null) return null;
-    if (typeof result === "string") {
-      const s = result.trim();
-      if (!s) return null;
-      const lower = s.toLowerCase();
-      if (lower === "win" || lower === "loss" || lower === "tie" || lower === "unknown") return lower;
-
-      // Typical value: "NNet.Game.EResultDetails.e_win"
-      const last = s.split(".").pop() || s;
-      return last.startsWith("e_") ? last.slice(2) : last;
-    }
-    return String(result);
-  };
-
-  return {
-    patchVersion: stripBuildFromPatchVersion(summary.patchVersion),
-    build: summary.build ?? null,
-    durationSeconds: Number.isFinite(summary.durationSeconds)
-      ? Math.round(summary.durationSeconds)
-      : summary.durationSeconds,
-    useScaledTime: summary.useScaledTime,
-    mapTitle: summary.mapTitle,
-    players: players.map((p) => ({
-      name: p.name ?? null,
-      race: p.race ?? null,
-      result: normalizeResult(p.result),
-      teamId: p.teamId ?? null,
-      apm: Number.isFinite(p.apm) ? Math.round(p.apm) : p.apm,
-    })),
-  };
-}
-
 async function copyToClipboard(text) {
   const { spawn } = require("child_process");
 
@@ -324,45 +270,14 @@ async function main() {
   const output = [];
   const out = (s = "") => output.push(String(s));
 
-  const stripBuildFromPatchVersion = (patchVersion) => {
-    if (typeof patchVersion !== "string") return patchVersion;
-    const parts = patchVersion.split(".");
-    if (parts.length >= 3) return parts.slice(0, 3).join(".");
-    return patchVersion;
-  };
-
-  const roundSecondsFieldsDeep = (value) => {
-    const ROUND_KEYS = new Set(["seconds", "startSeconds", "endSeconds", "durationSeconds"]);
-    if (Array.isArray(value)) return value.map(roundSecondsFieldsDeep);
-    if (!value || typeof value !== "object") return value;
-    /** @type {Record<string, unknown>} */
-    const outObj = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (ROUND_KEYS.has(k) && typeof v === "number" && Number.isFinite(v)) {
-        outObj[k] = Math.round(v);
-      } else {
-        outObj[k] = roundSecondsFieldsDeep(v);
-      }
-    }
-    return outObj;
-  };
-
-  const normalizeOutputForSection = (data) => {
-    if (!data || typeof data !== "object") return data;
-    const out = { ...data };
-    if ("patchVersion" in out) out.patchVersion = stripBuildFromPatchVersion(out.patchVersion);
-    if ("baseBuild" in out) delete out.baseBuild;
-    return roundSecondsFieldsDeep(out);
-  };
-
   function emitSection(name, data) {
     if (!data) return;
     if (output.length > 0) out("");
     out(`=== ${name} ===`);
-    out(JSON.stringify(normalizeOutputForSection(data), null, 2));
+    out(JSON.stringify(data, null, 2));
   }
 
-  if (sections.summary) emitSection("Summary", formatSummaryForOutput(summary));
+  if (sections.summary) emitSection("Summary", summary);
 
   if (sections.build) {
     const data =
@@ -371,11 +286,8 @@ async function main() {
         : {
             ...buildCommands,
             players: buildCommands.players.map((p) => ({
-              name: p.name,
-              race: p.race,
+              ...p,
               commands: p.commands.slice(0, args.limit),
-              totalCommands: p.commands.length,
-              totalResolvedCommands: p.commands.filter((c) => c.commandName !== null).length,
             })),
           };
     emitSection("Build Commands", data);
@@ -388,9 +300,7 @@ async function main() {
         : {
             ...chat,
             messages: chat.messages.slice(0, args.limit),
-            totalMessages: chat.messages.length,
             pings: chat.pings.slice(0, args.limit),
-            totalPings: chat.pings.length,
           };
     emitSection("Chat", data);
   }
@@ -402,8 +312,6 @@ async function main() {
         : {
             ...engagements,
             engagements: engagements.engagements.slice(0, args.limit),
-            totalEngagements: engagements.engagements.length,
-            armyValueTimeline: undefined,
           };
     emitSection("Engagements", data);
   }
@@ -415,7 +323,6 @@ async function main() {
         : {
             ...ecoTimeline,
             timeline: ecoTimeline.timeline.map((series) => series.slice(0, args.limit)),
-            totalSamples: ecoTimeline.timeline.map((series) => series.length),
           };
     emitSection("Eco Timeline", data);
   }

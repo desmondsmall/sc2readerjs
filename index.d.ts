@@ -26,6 +26,7 @@ export interface ReplayPlayerSummary {
 export interface ReplayDetails {
   m_title: Buffer;
   m_mapFileName?: Buffer;
+  m_timeUTC?: number;
   m_playerList?: Array<{
     m_name: Buffer;
     m_race: Buffer;
@@ -42,14 +43,13 @@ export interface LoadReplaySummaryOptions {
 
 export interface ReplaySummary {
   patchVersion: string;
-  baseBuild: number | null;
   build: number | null;
   durationSeconds: number;
   useScaledTime: boolean;
+  playedAt: string | null;
+  gameType: string | null;
   mapTitle: string | null;
-  mapFileName: string | null;
-  replayType: string | number | null;
-  signature: string | null;
+  replayType: "campaign" | "challenge" | "multiplayer" | "custom" | string | null;
   players: ReplayPlayerSummary[];
 }
 

@@ -12,12 +12,15 @@ test("loads basic replay summary fields", async () => {
 
   const summary = await loadReplaySummary(replayPath);
 
-  assert.equal(summary.baseBuild, 80949);
+  assert.equal(summary.build, 80949);
   assert.ok(summary.patchVersion.startsWith("5.0.0."));
   assert.ok(summary.durationSeconds > 0);
 
   assert.equal(summary.mapTitle, "Ever Dream LE");
   assert.equal(summary.players.length, 2);
+  assert.equal(typeof summary.playedAt, "string");
+  assert.ok(summary.playedAt);
+  assert.equal(summary.gameType, "1v1");
 
   const names = summary.players.map((p) => p.name);
   assert.ok(names.includes("Rairden"));

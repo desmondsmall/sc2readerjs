@@ -42,21 +42,20 @@ All functions:
 
 **Returns**
 
-- A small object (`ReplaySummary`) with patch/build info, map info, duration, and `players[]`.
+- A small object (`ReplaySummary`) with patch/build info, map info, duration, played time, and `players[]`.
 
 **Response schema**
 
 ```ts
 type ReplaySummary = {
   patchVersion: string;
-  baseBuild: number | null;
   build: number | null;
   durationSeconds: number;
   useScaledTime: boolean;
+  playedAt: string | null; // ISO timestamp from replay details (m_timeUTC), null if missing
+  gameType: string | null; // derived from team sizes, e.g. "1v1", "2v2", "ffa-4"
   mapTitle: string | null;
-  mapFileName: string | null;
-  replayType: string | number | null;
-  signature: string | null;
+  replayType: "campaign" | "challenge" | "multiplayer" | "custom" | string | null;
   players: Array<{
     name: string | null;
     race: string | null;

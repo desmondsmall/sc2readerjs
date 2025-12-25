@@ -17,10 +17,4 @@ function decodeBufferToUtf8String(value) {
   return s;
 }
 
-function normalizeFourCC(value) {
-  if (value === null || value === undefined) return null;
-  const buf = Buffer.isBuffer(value) ? value : Buffer.from(value);
-  return buf.toString("ascii").replace(/\u0000/g, "");
-}
-
-module.exports = { decodeBufferToUtf8String, normalizeFourCC };
+module.exports = { decodeBufferToUtf8String };
