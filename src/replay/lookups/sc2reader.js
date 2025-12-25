@@ -6,15 +6,15 @@ const path = require("path");
 let cachedAbilityLookup = null; // Map<string, string[]>
 let cachedTrainCommands = null; // Map<string, { product: string, buildTimeSeconds: number }>
 const cachedAbilityLinkToNameByBuild = new Map(); // number -> Map<number,string>
-let cachedLotvBaseAbilityLinkToName = null; // Map<number, string>
-let cachedLotVAbilityBuilds = null; // number[]
+let cachedBaseAbilityLinkToName = null; // Map<number, string>
+let cachedAbilityBuilds = null; // number[]
 
-function sc2readerDataRoot() {
-  return path.resolve(__dirname, "../../../data/sc2reader");
+function abilitiesDataRoot() {
+  return path.resolve(__dirname, "../../data/abilities");
 }
 
-function lotvDir() {
-  return path.join(sc2readerDataRoot(), "LotV");
+function abilityBuildsDir() {
+  return path.join(abilitiesDataRoot(), "builds");
 }
 
 function mergeIdToNameMaps(baseMap, patchMap) {
@@ -25,7 +25,7 @@ function mergeIdToNameMaps(baseMap, patchMap) {
 
 async function loadAbilityLookup() {
   if (cachedAbilityLookup) return cachedAbilityLookup;
-  const csvPath = path.join(sc2readerDataRoot(), "ability_lookup.csv");
+  const csvPath = path.join(abilitiesDataRoot(), "lookup.csv");
   const text = await fs.readFile(csvPath, "utf8");
   const map = new Map();
   for (const line of text.split(/\r?\n/)) {
@@ -41,7 +41,7 @@ async function loadAbilityLookup() {
 
 async function loadTrainCommands() {
   if (cachedTrainCommands) return cachedTrainCommands;
-  const jsonPath = path.join(sc2readerDataRoot(), "train_commands.json");
+  const jsonPath = path.join(abilitiesDataRoot(), "train_commands.json");
   const raw = await fs.readFile(jsonPath, "utf8");
   /** @type {Record<string, [string, number]>} */
   const parsed = JSON.parse(raw);
@@ -53,18 +53,18 @@ async function loadTrainCommands() {
   return map;
 }
 
-async function loadLotVAbilityBuilds() {
-  if (cachedLotVAbilityBuilds) return cachedLotVAbilityBuilds;
-  const dir = lotvDir();
+async function loadAbilityBuilds() {
+  if (cachedAbilityBuilds) return cachedAbilityBuilds;
+  const dir = abilityBuildsDir();
   const entries = await fs.readdir(dir);
   const builds = [];
   for (const name of entries) {
-    const m = name.match(/^(\d+)_abilities\.csv$/);
+    const m = name.match(/^(\d+)\.csv$/);
     if (!m) continue;
     builds.push(Number(m[1]));
   }
   builds.sort((a, b) => a - b);
-  cachedLotVAbilityBuilds = builds;
+  cachedAbilityBuilds = builds;
   return builds;
 }
 
@@ -83,27 +83,27 @@ async function readAbilityLinkToNameCsv(csvPath) {
   return map;
 }
 
-async function loadLotvBaseAbilityLinkToName() {
-  if (cachedLotvBaseAbilityLinkToName) return cachedLotvBaseAbilityLinkToName;
-  const basePath = path.join(lotvDir(), "base_abilities.csv");
+async function loadBaseAbilityLinkToName() {
+  if (cachedBaseAbilityLinkToName) return cachedBaseAbilityLinkToName;
+  const basePath = path.join(abilityBuildsDir(), "base.csv");
   try {
-    cachedLotvBaseAbilityLinkToName = await readAbilityLinkToNameCsv(basePath);
+    cachedBaseAbilityLinkToName = await readAbilityLinkToNameCsv(basePath);
   } catch {
-    cachedLotvBaseAbilityLinkToName = new Map();
+    cachedBaseAbilityLinkToName = new Map();
   }
-  return cachedLotvBaseAbilityLinkToName;
+  return cachedBaseAbilityLinkToName;
 }
 
 async function loadAbilityLinkToName(baseBuild) {
   if (cachedAbilityLinkToNameByBuild.has(baseBuild)) return cachedAbilityLinkToNameByBuild.get(baseBuild);
 
-  // LotV-only "base pack" behavior:
-  // - `LotV/base_abilities.csv` is the baseline mapping (stable-ish core ids).
-  // - `LotV/${build}_abilities.csv` contains build-specific additions/overrides.
+  // Base pack + build overlays:
+  // - `builds/base.csv` is the baseline mapping (stable-ish core ids).
+  // - `builds/${build}.csv` contains build-specific additions/overrides.
   // We load the base pack and overlay the best available build file:
-  //   exact `build`, else closest LotV build <= baseBuild, else base-only.
-  const builds = await loadLotVAbilityBuilds();
-  const baseMap = await loadLotvBaseAbilityLinkToName();
+  //   exact `build`, else closest build <= baseBuild, else base-only.
+  const builds = await loadAbilityBuilds();
+  const baseMap = await loadBaseAbilityLinkToName();
 
   const fallbackBuild = builds.includes(baseBuild)
     ? baseBuild
@@ -114,7 +114,7 @@ async function loadAbilityLinkToName(baseBuild) {
     return baseMap;
   }
 
-  const chosenPath = path.join(lotvDir(), `${fallbackBuild}_abilities.csv`);
+  const chosenPath = path.join(abilityBuildsDir(), `${fallbackBuild}.csv`);
   try {
     const patchMap = await readAbilityLinkToNameCsv(chosenPath);
     const merged = mergeIdToNameMaps(baseMap, patchMap);

@@ -32,7 +32,7 @@ function decodeTarget(data) {
  * Loads player-issued "build-like" commands (units/buildings/upgrades) from `replay.game.events`.
  *
  * This is intent-based: it reads `NNet.Game.SCmdEvent` and resolves ability ids to command names
- * using the vendored sc2reader lookup data in `data/sc2reader/`.
+ * using the vendored ability lookup data in `src/data/abilities/`.
  *
  * @param {string} replayPath
  * @param {LoadBuildCommandsOptions} [options]

@@ -3,7 +3,7 @@
 /**
  * Data-driven decoder using Blizzard's published protocol schemas.
  *
- * `data/protocols/protocol{build}.json` contains type declarations for a specific SC2 build.
+ * `src/data/protocols/protocol{build}.json` contains type declarations for a specific SC2 build.
  * This module loads those declarations and can decode:
  * - `NNet.Replay.SHeader` from the replay header blob
  * - `NNet.Game.SDetails` from `replay.details`

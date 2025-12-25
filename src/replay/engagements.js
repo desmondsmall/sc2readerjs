@@ -17,13 +17,9 @@ function formatPatchVersion(version) {
   return `${major}.${minor}.${revision}.${build}`;
 }
 
-function sc2readerDataRoot() {
-  return path.resolve(__dirname, "../../data/sc2reader");
-}
-
 async function loadUnitInfo() {
   if (cachedUnitInfo) return cachedUnitInfo;
-  const jsonPath = path.join(sc2readerDataRoot(), "unit_info.json");
+  const jsonPath = path.join(__dirname, "../data/units/unit_info.json");
   const raw = await fs.readFile(jsonPath, "utf8");
   /** @type {Record<string, Record<string, any>>} */
   const byRace = JSON.parse(raw);
@@ -440,4 +436,3 @@ async function loadEngagements(replayPath, options = {}) {
 }
 
 module.exports = { loadEngagements };
-

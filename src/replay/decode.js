@@ -36,7 +36,7 @@ const { loadProtocol, loadLatestProtocol } = require("../s2protocol/protocolLoad
  */
 async function decodeReplay(replayPath, options = {}) {
   const protocolDir =
-    options.protocolDir || path.join(__dirname, "../../data/protocols");
+    options.protocolDir || path.join(__dirname, "../data/protocols");
 
   const archive = await SC2MPQArchive.open(replayPath);
   let closed = false;
