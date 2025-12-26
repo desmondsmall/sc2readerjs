@@ -1,5 +1,5 @@
 {
-  "name": "sc2readerjs",
+  "name": "@desmond_small/sc2readerjs",
   "version": "0.1.0",
   "description": "Extracts game data from Starcraft II replay files.",
   "license": "MIT",
