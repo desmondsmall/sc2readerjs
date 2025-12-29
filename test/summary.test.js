@@ -12,6 +12,8 @@ test("loads basic replay summary fields", async () => {
 
   const summary = await loadReplaySummary(replayPath);
 
+  assert.equal(typeof summary.replayId, "string");
+  assert.equal(summary.replayId.length, 64);
   assert.equal(summary.build, 80949);
   assert.ok(summary.patchVersion.startsWith("5.0.0."));
   assert.ok(summary.durationSeconds > 0);
@@ -28,6 +30,13 @@ test("loads basic replay summary fields", async () => {
   const races = summary.players.map((p) => p.race);
   assert.ok(races.includes("Terran"));
   assert.ok(races.includes("Zerg"));
+
+  const results = new Set(summary.players.map((p) => p.result));
+  for (const r of results) {
+    assert.ok(
+      r === null || r === "win" || r === "loss" || r === "tie" || r === "undecided" || r === "unknown"
+    );
+  }
 
   for (const p of summary.players) {
     assert.equal(typeof p.apm, "number");

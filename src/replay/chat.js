@@ -48,6 +48,7 @@ async function loadChat(replayPath, options = {}) {
       messageEvents = await ctx.readFile("replay.message.events");
     } catch {
       return {
+        replayId: ctx.replayId,
         patchVersion: formatPatchVersion(header?.m_version),
         baseBuild: header?.m_version?.m_baseBuild ?? null,
         build: header?.m_version?.m_build ?? null,
@@ -113,6 +114,7 @@ async function loadChat(replayPath, options = {}) {
     pings.sort((a, b) => a.gameloop - b.gameloop);
 
     return {
+      replayId: ctx.replayId,
       patchVersion: formatPatchVersion(header?.m_version),
       baseBuild: header?.m_version?.m_baseBuild ?? null,
       build: header?.m_version?.m_build ?? null,

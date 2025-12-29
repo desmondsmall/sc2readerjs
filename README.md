@@ -15,3 +15,6 @@ All functions:
 - Take a filesystem `replayPath` (absolute or relative).
 - Return times as both `gameloop` and derived `seconds` (using the replay’s scaled/unscaled time setting).
 - Support `options.protocolDir` to override where protocol schemas are loaded from (advanced/mostly for development).
+
+## Replay IDs
+Every API result includes a `replayId` field (a stable hex string) that is consistent across `loadReplaySummary`, `loadBuildCommands`, `loadChat`, etc., so consumers can correlate responses from different calls.

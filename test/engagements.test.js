@@ -12,6 +12,8 @@ test("loads engagements (may be empty)", async () => {
 
   const engagements = await loadEngagements(replayPath, { includeTimeline: false });
 
+  assert.equal(typeof engagements.replayId, "string");
+  assert.equal(engagements.replayId.length, 64);
   assert.equal(engagements.baseBuild, 80949);
   assert.equal(engagements.players.length, 2);
   assert.ok(Array.isArray(engagements.engagements));
@@ -48,7 +50,8 @@ test("can include army value timeline samples", async () => {
   );
 
   const engagements = await loadEngagements(replayPath);
+  assert.equal(typeof engagements.replayId, "string");
+  assert.equal(engagements.replayId.length, 64);
   assert.ok(Array.isArray(engagements.armyValueTimeline));
   assert.equal(engagements.armyValueTimeline.length, engagements.players.length);
 });
-

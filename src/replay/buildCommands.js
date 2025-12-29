@@ -109,6 +109,7 @@ async function loadBuildCommands(replayPath, options = {}) {
     for (const p of players) p.commands.sort((a, b) => a.gameloop - b.gameloop);
 
     return {
+      replayId: ctx.replayId,
       patchVersion: formatPatchVersion(header?.m_version),
       baseBuild,
       build: header?.m_version?.m_build ?? null,

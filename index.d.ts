@@ -18,10 +18,12 @@ export interface ReplayHeader {
 export interface ReplayPlayerSummary {
   name: string | null;
   race: string | null;
-  result: string | number | null;
+  result: ReplayResult | null;
   teamId: number | null;
   apm: number;
 }
+
+export type ReplayResult = "win" | "loss" | "tie" | "undecided" | "unknown";
 
 export interface ReplayDetails {
   m_title: Buffer;
@@ -42,6 +44,7 @@ export interface LoadReplaySummaryOptions {
 }
 
 export interface ReplaySummary {
+  replayId: string;
   patchVersion: string;
   build: number | null;
   durationSeconds: number;
@@ -83,6 +86,7 @@ export interface Ping {
 }
 
 export interface ReplayChat {
+  replayId: string;
   patchVersion: string;
   baseBuild: number | null;
   build: number | null;
@@ -138,6 +142,7 @@ export interface BuildCommand {
 }
 
 export interface ReplayBuildCommands {
+  replayId: string;
   patchVersion: string;
   baseBuild: number | null;
   build: number | null;
@@ -192,6 +197,7 @@ export interface ArmyValueSample {
 }
 
 export interface ReplayEngagements {
+  replayId: string;
   patchVersion: string;
   baseBuild: number | null;
   build: number | null;
@@ -226,6 +232,7 @@ export interface EcoSample {
 }
 
 export interface ReplayEcoTimeline {
+  replayId: string;
   patchVersion: string;
   baseBuild: number | null;
   build: number | null;

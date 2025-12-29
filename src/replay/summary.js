@@ -45,6 +45,21 @@ function normalizeReplayType(raw) {
 }
 
 /**
+ * Normalizes result enum names like `NNet.Game.EResultDetails.e_win` to simple strings like `win`.
+ * @param {string | number | null} raw
+ */
+function normalizeResult(raw) {
+  if (raw === null || raw === undefined) return null;
+  const last = String(raw).split(".").pop() || String(raw);
+  const trimmed = last.startsWith("e_") ? last.slice(2) : last;
+  const v = trimmed.toLowerCase();
+
+  // Common outcomes.
+  if (v === "win" || v === "loss" || v === "tie" || v === "undecided") return v;
+  return v ? "unknown" : null;
+}
+
+/**
  * Derive a human-readable team format (e.g., "1v1", "2v2", "ffa-4") from player teamIds.
  * Falls back to null when teamIds are missing or inconsistent.
  * @param {Array<{teamId: number | null}>} players
@@ -78,7 +93,9 @@ async function loadReplaySummary(replayPath, options = {}) {
       (details?.m_playerList ?? []).map((p) => ({
         name: decodeBufferToUtf8String(p?.m_name),
         race: decodeBufferToUtf8String(p?.m_race),
-        result: protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result),
+        result: normalizeResult(
+          protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result) ?? null
+        ),
         teamId: p?.m_teamId ?? null,
         apm: 0,
       })) ?? [];
@@ -95,6 +112,7 @@ async function loadReplaySummary(replayPath, options = {}) {
         : null;
 
     return {
+      replayId: ctx.replayId,
       patchVersion: formatPatchVersion(header?.m_version),
       build: header?.m_version?.m_build ?? null,
       durationSeconds: gameLoopsToSeconds(

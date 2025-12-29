@@ -12,6 +12,7 @@
 const path = require("path");
 const { SC2MPQArchive } = require("../sc2mpq/sc2mpq");
 const { loadProtocol, loadLatestProtocol } = require("../s2protocol/protocolLoader");
+const { computeReplayId } = require("./replayId");
 
 /**
  * @typedef {object} DecodeReplayOptions
@@ -20,6 +21,7 @@ const { loadProtocol, loadLatestProtocol } = require("../s2protocol/protocolLoad
 
 /**
  * @typedef {object} ReplayDecodeContext
+ * @property {string} replayId
  * @property {number|null} baseBuild
  * @property {import("../s2protocol/protocol").Protocol} protocol
  * @property {any} header
@@ -58,7 +60,24 @@ async function decodeReplay(replayPath, options = {}) {
     const detailsBytes = await archive.readFile("replay.details");
     const details = protocol.decodeReplayDetails(detailsBytes);
 
-    return { baseBuild, protocol, header, details, readFile: (name) => archive.readFile(name), close };
+    let initDataBytes = Buffer.alloc(0);
+    try {
+      initDataBytes = await archive.readFile("replay.initData");
+    } catch {
+      // Some edge-case replays may not include initData; keep id stable by hashing an empty blob.
+    }
+
+    const replayId = computeReplayId([headerBytes, detailsBytes, initDataBytes]);
+
+    return {
+      replayId,
+      baseBuild,
+      protocol,
+      header,
+      details,
+      readFile: (name) => archive.readFile(name),
+      close,
+    };
   } catch (error) {
     await close();
     throw error;

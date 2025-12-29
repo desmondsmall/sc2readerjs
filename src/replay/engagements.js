@@ -106,6 +106,7 @@ async function loadEngagements(replayPath, options = {}) {
       trackerEvents = await ctx.readFile("replay.tracker.events");
     } catch {
       return {
+        replayId: ctx.replayId,
         patchVersion: formatPatchVersion(header?.m_version),
         baseBuild: header?.m_version?.m_baseBuild ?? null,
         build: header?.m_version?.m_build ?? null,
@@ -422,6 +423,7 @@ async function loadEngagements(replayPath, options = {}) {
     engagements.sort((a, b) => a.startGameloop - b.startGameloop);
 
     return {
+      replayId: ctx.replayId,
       patchVersion: formatPatchVersion(header?.m_version),
       baseBuild: header?.m_version?.m_baseBuild ?? null,
       build: header?.m_version?.m_build ?? null,

@@ -12,9 +12,12 @@ test("loads eco timeline samples (workers/supply/bases) from tracker stats", asy
 
   const eco = await loadEcoTimeline(replayPath);
 
+  assert.equal(typeof eco.replayId, "string");
+  assert.equal(eco.replayId.length, 64);
   assert.equal(eco.baseBuild, 80949);
   assert.equal(eco.players.length, 2);
   assert.equal(eco.timeline.length, 2);
+
 
   for (const series of eco.timeline) {
     assert.ok(Array.isArray(series));

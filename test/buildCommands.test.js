@@ -12,6 +12,8 @@ test("loads build commands (units/buildings/upgrades) from game events", async (
 
   const result = await loadBuildCommands(replayPath);
 
+  assert.equal(typeof result.replayId, "string");
+  assert.equal(result.replayId.length, 64);
   assert.equal(result.baseBuild, 80949);
   assert.equal(result.players.length, 2);
 

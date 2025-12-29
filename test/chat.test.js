@@ -12,6 +12,8 @@ test("loads chat and ping events (may be empty)", async () => {
 
   const chat = await loadChat(replayPath);
 
+  assert.equal(typeof chat.replayId, "string");
+  assert.equal(chat.replayId.length, 64);
   assert.equal(chat.baseBuild, 80949);
   assert.equal(chat.players.length, 2);
   assert.ok(Array.isArray(chat.messages));
