@@ -51,6 +51,19 @@ class VersionedDecoder {
     return negative ? -result : result;
   }
 
+  _vintBigInt() {
+    let b = this._buffer.readBits(8);
+    const negative = (b & 1) !== 0;
+    let result = BigInt((b >> 1) & 0x3f);
+    let bits = 6;
+    while ((b & 0x80) !== 0) {
+      b = this._buffer.readBits(8);
+      result |= BigInt(b & 0x7f) << BigInt(bits);
+      bits += 7;
+    }
+    return negative ? -result : result;
+  }
+
   readArray(decodeElem) {
     this._expectSkip(0);
     const length = this._vint();
@@ -85,6 +98,11 @@ class VersionedDecoder {
   readInt() {
     this._expectSkip(9);
     return this._vint();
+  }
+
+  readIntBigInt() {
+    this._expectSkip(9);
+    return this._vintBigInt();
   }
 
   readOptional(decodeInner) {

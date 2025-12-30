@@ -36,6 +36,8 @@ const FIXTURES = {
   dh2025_finals_g5: "test_replays/DH2025/Finals - Solar vs Maru - G5 - Tokamak.SC2Replay",
   dh2025_ro8_serral_classic_g3: "test_replays/DH2025/Ro8 - Serral vs Classic - G3 - Incorporeal.SC2Replay",
   dh2025_qm_classic_clem_g1: "test_replays/DH2025/QM - Classic vs Clem - G1 - Torches.SC2Replay",
+  dh2025_qm_hero_reynor_g1:
+    "test_replays/DH2025/QM  - herO vs Reynor - G1 - Persephone.SC2Replay",
 };
 
 function resolveReplayPath(inputPath) {

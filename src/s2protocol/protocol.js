@@ -340,9 +340,30 @@ class Protocol {
         return decoder.readBlob();
       case "StringType":
         return decoder.readBlob();
-      case "IntType":
+      case "IntType": {
+        const maxEvalue = typeInfo.bounds?.max?.evalue ?? null;
+        const maxBound =
+          typeof maxEvalue === "string" && maxEvalue.length > 0
+            ? (() => {
+                try {
+                  return BigInt(maxEvalue);
+                } catch {
+                  return null;
+                }
+              })()
+            : null;
+
+        // Versioned VInt decoding needs BigInt for types that can exceed 32-bit (e.g. NNet.int64).
+        if (maxBound !== null && maxBound > 2147483648n) {
+          const v = decoder.readIntBigInt();
+          const abs = v < 0n ? -v : v;
+          if (abs <= BigInt(Number.MAX_SAFE_INTEGER)) return Number(v);
+          return v;
+        }
         return decoder.readInt();
+      }
       case "EnumType":
+        // Enums in the versioned format are encoded as VInts and should comfortably fit in Number.
         return decoder.readInt();
       case "ChoiceType": {
         const fieldsByTag = new Map();

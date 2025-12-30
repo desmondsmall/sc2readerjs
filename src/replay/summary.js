@@ -17,6 +17,7 @@ const { decodeReplay } = require("./decode");
 const { decodeBufferToUtf8String } = require("../util/text");
 const { computeAverageApmByUserId } = require("./stats/apm");
 const { gameLoopsToSeconds } = require("./time");
+const { normalizePlayerName, normalizeRaceName } = require("./normalize");
 
 /** @typedef {import("../../index").ReplaySummary} ReplaySummary */
 /** @typedef {import("../../index").LoadReplaySummaryOptions} LoadReplaySummaryOptions */
@@ -59,6 +60,54 @@ function normalizeResult(raw) {
   return v ? "unknown" : null;
 }
 
+function normalizePlayedAt(value) {
+  if (value === null || value === undefined) return null;
+
+  // `m_timeUTC` is `NNet.int64`. In SC2 replays it’s typically a Windows FILETIME:
+  // 100-ns ticks since 1601-01-01, stored as int64.
+  //
+  // Many replays therefore require FILETIME -> Unix epoch conversion.
+  const FILETIME_UNIX_EPOCH = 116444736000000000n; // 1970-01-01 in 100ns ticks
+
+  /** @type {number} */
+  let ms;
+
+  if (typeof value === "bigint") {
+    const ticks = value;
+    if (ticks <= 0n) return null;
+    const unixTicks = ticks - FILETIME_UNIX_EPOCH;
+    // 100ns -> ms = ticks / 10_000
+    ms = Number(unixTicks / 10000n);
+  } else if (typeof value === "number" && Number.isFinite(value)) {
+    // Fallback: some fields may decode into Numbers (or older replays may differ).
+    const abs = Math.abs(value);
+    if (abs >= 1e16) {
+      // likely FILETIME in 100ns
+      ms = Number((BigInt(Math.trunc(value)) - FILETIME_UNIX_EPOCH) / 10000n);
+    } else if (abs >= 1e14) {
+      // microseconds -> ms
+      ms = value / 1000;
+    } else if (abs >= 1e11) {
+      // milliseconds
+      ms = value;
+    } else {
+      // seconds
+      ms = value * 1000;
+    }
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(ms)) return null;
+
+  // Sanity bounds: SC2 release era onwards, and not wildly in the future.
+  const earliest = Date.UTC(2010, 0, 1);
+  const latest = Date.UTC(2100, 0, 1);
+  if (ms < earliest || ms > latest) return null;
+
+  return new Date(ms).toISOString();
+}
+
 /**
  * Derive a human-readable team format (e.g., "1v1", "2v2", "ffa-4") from player teamIds.
  * Falls back to null when teamIds are missing or inconsistent.
@@ -91,8 +140,8 @@ async function loadReplaySummary(replayPath, options = {}) {
 
     const players =
       (details?.m_playerList ?? []).map((p) => ({
-        name: decodeBufferToUtf8String(p?.m_name),
-        race: decodeBufferToUtf8String(p?.m_race),
+        name: normalizePlayerName(decodeBufferToUtf8String(p?.m_name)),
+        race: normalizeRaceName(decodeBufferToUtf8String(p?.m_race)),
         result: normalizeResult(
           protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result) ?? null
         ),
@@ -105,11 +154,7 @@ async function loadReplaySummary(replayPath, options = {}) {
       players[i].apm = apmByUserId[i] ?? 0;
     }
 
-    const timeUtcSeconds = details?.m_timeUTC;
-    const playedAt =
-      typeof timeUtcSeconds === "number" && Number.isFinite(timeUtcSeconds)
-        ? new Date(timeUtcSeconds * 1000).toISOString()
-        : null;
+    const playedAt = normalizePlayedAt(details?.m_timeUTC);
 
     return {
       replayId: ctx.replayId,

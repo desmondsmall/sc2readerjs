@@ -5,6 +5,7 @@ const { decodeBufferToUtf8String } = require("../util/text");
 const { gameLoopsToSeconds } = require("./time");
 const { resolveAbilityCommand } = require("./lookups/sc2reader");
 const { buildEventUserIdToPlayerIndexMap } = require("./playerMapping");
+const { normalizePlayerName, normalizeRaceName } = require("./normalize");
 
 /**
  * @typedef {object} LoadBuildCommandsOptions
@@ -46,8 +47,8 @@ async function loadBuildCommands(replayPath, options = {}) {
 
     const players =
       (details?.m_playerList ?? []).map((p) => ({
-        name: decodeBufferToUtf8String(p?.m_name),
-        race: decodeBufferToUtf8String(p?.m_race),
+        name: normalizePlayerName(decodeBufferToUtf8String(p?.m_name)),
+        race: normalizeRaceName(decodeBufferToUtf8String(p?.m_race)),
         commands: [],
       })) ?? [];
 

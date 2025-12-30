@@ -6,6 +6,7 @@ const path = require("path");
 const { decodeReplay } = require("./decode");
 const { decodeBufferToUtf8String } = require("../util/text");
 const { gameLoopsToSeconds } = require("./time");
+const { normalizePlayerName, normalizeRaceName } = require("./normalize");
 
 let cachedUnitInfo = null; // Map<string, { minerals?: number, vespene?: number, supply?: number, is_army?: boolean, is_worker?: boolean, is_building?: boolean }>
 
@@ -97,8 +98,8 @@ async function loadEngagements(replayPath, options = {}) {
     const players =
       (details?.m_playerList ?? []).map((p, i) => ({
         userId: i,
-        name: decodeBufferToUtf8String(p?.m_name),
-        race: decodeBufferToUtf8String(p?.m_race),
+        name: normalizePlayerName(decodeBufferToUtf8String(p?.m_name)),
+        race: normalizeRaceName(decodeBufferToUtf8String(p?.m_race)),
       })) ?? [];
 
     let trackerEvents;

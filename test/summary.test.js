@@ -43,3 +43,16 @@ test("loads basic replay summary fields", async () => {
     assert.ok(Number.isFinite(p.apm));
   }
 });
+
+test("normalizes localized race names (e.g. Korean) to stable English values", async () => {
+  const replayPath = path.join(
+    __dirname,
+    "../test_replays/DH2025/QM  - herO vs Reynor - G1 - Persephone.SC2Replay"
+  );
+
+  const summary = await loadReplaySummary(replayPath);
+  assert.ok(summary.players.some((p) => p.name === "<TWSTED> herO"));
+  const races = summary.players.map((p) => p.race);
+  assert.ok(races.includes("Protoss"));
+  assert.ok(races.includes("Zerg"));
+});
