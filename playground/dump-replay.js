@@ -302,7 +302,6 @@ async function main() {
         : {
             ...chat,
             messages: chat.messages.slice(0, args.limit),
-            pings: chat.pings.slice(0, args.limit),
           };
     emitSection("Chat", data);
   }

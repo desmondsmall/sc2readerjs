@@ -1,25 +1,32 @@
-.DS_Store
+# dependencies
 node_modules/
-.npm-cache/
-.npmrc
 
-# Logs
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Build/output
-build/
-dist/
-
-# Cache
-.npm-cache/
-
-# TypeScript
-*.tsbuildinfo
-
-# IDEs/editors
-.idea/
+# OS/editor
+.DS_Store
 .vscode/
 
+# caches / build outputs
+dist/
+build/
+out/
+.cache/
+.eslintcache
+.nyc_output/
+coverage/
+
+# environment files
 .env
+.env.*
+
+# package artifacts
+*.tgz
+
+# local playground outputs
+playground/*.txt
+playground/**/*.txt
