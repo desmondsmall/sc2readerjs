@@ -30,7 +30,7 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: ReplayResult | null;
   teamId: number | null;
-  apm: number; // integer APM (rounded up)
+  apm: number;
 }
 
 export interface ReplaySummary {
@@ -40,6 +40,7 @@ export interface ReplaySummary {
   durationSeconds: number;
   useScaledTime: boolean;
   playedAt: string | null;
+  playedAtMs: number | null;
   gameType: string | null;
   mapTitle: string | null;
   replayType: "campaign" | "challenge" | "multiplayer" | "custom" | string | null;

@@ -48,9 +48,12 @@ export interface ReplaySummary {
   replayId: string;
   patchVersion: string;
   build: number | null;
+  /** Integer seconds (rounded up). */
   durationSeconds: number;
   useScaledTime: boolean;
   playedAt: string | null;
+  /** Unix epoch time in milliseconds derived from `playedAt`. */
+  playedAtMs: number | null;
   gameType: string | null;
   mapTitle: string | null;
   replayType: "campaign" | "challenge" | "multiplayer" | "custom" | string | null;

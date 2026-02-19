@@ -60,8 +60,8 @@ function normalizeResult(raw) {
   return v ? "unknown" : null;
 }
 
-function normalizePlayedAt(value) {
-  if (value === null || value === undefined) return null;
+function normalizePlayedAtFields(value) {
+  if (value === null || value === undefined) return { playedAt: null, playedAtMs: null };
 
   // `m_timeUTC` is `NNet.int64`. In SC2 replays it’s typically a Windows FILETIME:
   // 100-ns ticks since 1601-01-01, stored as int64.
@@ -74,7 +74,7 @@ function normalizePlayedAt(value) {
 
   if (typeof value === "bigint") {
     const ticks = value;
-    if (ticks <= 0n) return null;
+    if (ticks <= 0n) return { playedAt: null, playedAtMs: null };
     const unixTicks = ticks - FILETIME_UNIX_EPOCH;
     // 100ns -> ms = ticks / 10_000
     ms = Number(unixTicks / 10000n);
@@ -95,17 +95,20 @@ function normalizePlayedAt(value) {
       ms = value * 1000;
     }
   } else {
-    return null;
+    return { playedAt: null, playedAtMs: null };
   }
 
-  if (!Number.isFinite(ms)) return null;
+  if (!Number.isFinite(ms)) return { playedAt: null, playedAtMs: null };
 
   // Sanity bounds: SC2 release era onwards, and not wildly in the future.
   const earliest = Date.UTC(2010, 0, 1);
   const latest = Date.UTC(2100, 0, 1);
-  if (ms < earliest || ms > latest) return null;
+  if (ms < earliest || ms > latest) return { playedAt: null, playedAtMs: null };
 
-  return new Date(ms).toISOString();
+  return {
+    playedAtMs: Math.trunc(ms),
+    playedAt: new Date(ms).toISOString(),
+  };
 }
 
 /**
@@ -155,7 +158,7 @@ async function loadReplaySummary(replayPath, options = {}) {
       players[i].apm = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0;
     }
 
-    const playedAt = normalizePlayedAt(details?.m_timeUTC);
+    const { playedAt, playedAtMs } = normalizePlayedAtFields(details?.m_timeUTC);
 
     return {
       replayId: ctx.replayId,
@@ -166,6 +169,7 @@ async function loadReplaySummary(replayPath, options = {}) {
       ),
       useScaledTime: Boolean(header?.m_useScaledTime),
       playedAt,
+      playedAtMs,
       gameType: inferGameType(players),
       mapTitle: decodeBufferToUtf8String(details?.m_title),
       replayType: normalizeReplayType(

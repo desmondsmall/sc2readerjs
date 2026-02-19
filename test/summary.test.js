@@ -23,6 +23,10 @@ test("loads basic replay summary fields", async () => {
   assert.equal(summary.players.length, 2);
   assert.equal(typeof summary.playedAt, "string");
   assert.ok(summary.playedAt);
+  assert.equal(typeof summary.playedAtMs, "number");
+  assert.ok(Number.isFinite(summary.playedAtMs));
+  assert.ok(Number.isInteger(summary.playedAtMs));
+  assert.equal(summary.playedAtMs, Date.parse(summary.playedAt));
   assert.equal(summary.gameType, "1v1");
 
   const names = summary.players.map((p) => p.name);
