@@ -17,6 +17,7 @@ test("loads basic replay summary fields", async () => {
   assert.equal(summary.build, 80949);
   assert.ok(summary.patchVersion.startsWith("5.0.0."));
   assert.ok(summary.durationSeconds > 0);
+  assert.ok(Number.isInteger(summary.durationSeconds));
 
   assert.equal(summary.mapTitle, "Ever Dream LE");
   assert.equal(summary.players.length, 2);
@@ -41,6 +42,7 @@ test("loads basic replay summary fields", async () => {
   for (const p of summary.players) {
     assert.equal(typeof p.apm, "number");
     assert.ok(Number.isFinite(p.apm));
+    assert.ok(Number.isInteger(p.apm));
   }
 });
 

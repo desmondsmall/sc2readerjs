@@ -30,7 +30,7 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: ReplayResult | null;
   teamId: number | null;
-  apm: number;
+  apm: number; // integer APM (rounded up)
 }
 
 export interface ReplaySummary {

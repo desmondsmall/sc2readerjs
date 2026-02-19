@@ -30,3 +30,6 @@ coverage/
 # local playground outputs
 playground/*.txt
 playground/**/*.txt
+
+# me
+todo.txt

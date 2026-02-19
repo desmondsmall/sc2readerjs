@@ -151,7 +151,8 @@ async function loadReplaySummary(replayPath, options = {}) {
 
     const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
     for (let i = 0; i < players.length; i++) {
-      players[i].apm = apmByUserId[i] ?? 0;
+      const raw = apmByUserId[i] ?? 0;
+      players[i].apm = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0;
     }
 
     const playedAt = normalizePlayedAt(details?.m_timeUTC);
@@ -160,9 +161,8 @@ async function loadReplaySummary(replayPath, options = {}) {
       replayId: ctx.replayId,
       patchVersion: formatPatchVersion(header?.m_version),
       build: header?.m_version?.m_build ?? null,
-      durationSeconds: gameLoopsToSeconds(
-        header?.m_elapsedGameLoops,
-        header?.m_useScaledTime
+      durationSeconds: Math.ceil(
+        gameLoopsToSeconds(header?.m_elapsedGameLoops, header?.m_useScaledTime)
       ),
       useScaledTime: Boolean(header?.m_useScaledTime),
       playedAt,
