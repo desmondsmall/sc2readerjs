@@ -152,10 +152,12 @@ async function loadReplaySummary(replayPath, options = {}) {
         apm: 0,
       })) ?? [];
 
-    const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
-    for (let i = 0; i < players.length; i++) {
-      const raw = apmByUserId[i] ?? 0;
-      players[i].apm = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0;
+    if (options.includeApm) {
+      const apmByUserId = await computeAverageApmByUserId(ctx, players.length);
+      for (let i = 0; i < players.length; i++) {
+        const raw = apmByUserId[i] ?? 0;
+        players[i].apm = Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 0;
+      }
     }
 
     const { playedAt, playedAtMs } = normalizePlayedAtFields(details?.m_timeUTC);

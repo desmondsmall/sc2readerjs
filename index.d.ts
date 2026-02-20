@@ -20,7 +20,7 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: ReplayResult | null;
   teamId: number | null;
-  /** Integer APM (rounded up). */
+  /** Integer APM (rounded up). 0 unless loadReplaySummary was called with includeApm: true. */
   apm: number;
 }
 
@@ -42,6 +42,8 @@ export interface ReplayDetails {
 
 export interface LoadReplaySummaryOptions {
   protocolDir?: string;
+  /** Set to true to compute per-player APM (requires reading two event streams). Default: false. */
+  includeApm?: boolean;
 }
 
 export interface ReplaySummary {
