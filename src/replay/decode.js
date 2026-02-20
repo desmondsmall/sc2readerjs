@@ -69,13 +69,25 @@ async function decodeReplay(replayPath, options = {}) {
 
     const replayId = computeReplayId([headerBytes, detailsBytes, initDataBytes]);
 
+    /** @type {Map<string, Buffer>} */
+    const fileCache = new Map();
+    // Pre-seed cache with buffers already loaded during decode setup.
+    fileCache.set("replay.details", detailsBytes);
+    fileCache.set("replay.initData", initDataBytes);
+    const readFile = async (name) => {
+      if (fileCache.has(name)) return fileCache.get(name);
+      const buf = await archive.readFile(name);
+      fileCache.set(name, buf);
+      return buf;
+    };
+
     return {
       replayId,
       baseBuild,
       protocol,
       header,
       details,
-      readFile: (name) => archive.readFile(name),
+      readFile,
       close,
     };
   } catch (error) {

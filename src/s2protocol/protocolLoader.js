@@ -14,6 +14,11 @@ const fs = require("fs/promises");
 const path = require("path");
 const { Protocol } = require("./protocol");
 
+/** @type {Map<string, Protocol>} */
+const protocolCache = new Map();
+/** @type {Map<string, number>} */
+const latestBuildCache = new Map();
+
 async function listProtocolBuilds(protocolDir) {
   const entries = await fs.readdir(protocolDir);
   const builds = [];
@@ -26,15 +31,22 @@ async function listProtocolBuilds(protocolDir) {
 }
 
 async function loadLatestProtocol(protocolDir) {
-  const builds = await listProtocolBuilds(protocolDir);
-  if (builds.length === 0) throw new Error(`No protocol JSON files in ${protocolDir}`);
-  return loadProtocol(protocolDir, builds[builds.length - 1]);
+  if (!latestBuildCache.has(protocolDir)) {
+    const builds = await listProtocolBuilds(protocolDir);
+    if (builds.length === 0) throw new Error(`No protocol JSON files in ${protocolDir}`);
+    latestBuildCache.set(protocolDir, builds[builds.length - 1]);
+  }
+  return loadProtocol(protocolDir, latestBuildCache.get(protocolDir));
 }
 
 async function loadProtocol(protocolDir, build) {
   if (!build) throw new Error("Build number is required to load a protocol");
+  const key = `${protocolDir}:${build}`;
+  if (protocolCache.has(key)) return protocolCache.get(key);
   const p = path.join(protocolDir, `protocol${build}.json`);
-  return Protocol.fromJsonFile(p);
+  const protocol = await Protocol.fromJsonFile(p);
+  protocolCache.set(key, protocol);
+  return protocol;
 }
 
 module.exports = { loadProtocol, loadLatestProtocol, listProtocolBuilds };

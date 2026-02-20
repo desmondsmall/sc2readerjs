@@ -63,27 +63,20 @@ function decryptBytes(buffer, seed) {
 }
 
 async function decryptTable(reader, entries, name, offset) {
-  let seed = hashString(name, 3) >>> 0;
-  let seed2 = 0xeeeeeeee >>> 0;
-  const count = entries * 4;
+  const seed = hashString(name, 3) >>> 0;
+  const count = entries * 4; // number of uint32 words (each entry is 4 words)
+  const byteLength = count * 4;
+  const buf = Buffer.alloc(byteLength);
+  const { bytesRead } = await reader.read(buf, 0, byteLength, offset >>> 0);
+  if (bytesRead !== byteLength) throw new Error("Unexpected EOF reading encrypted table");
+
+  // decryptBytes uses the same seed schedule as the old per-word loop.
+  decryptBytes(buf, seed);
+
   const table = new Uint32Array(count);
-  const buf = Buffer.alloc(4);
-
-  let pos = offset >>> 0;
   for (let i = 0; i < count; i++) {
-    seed2 = (seed2 + cryptoLookup(0x400 + (seed & 0xff))) >>> 0;
-    const { bytesRead } = await reader.read(buf, 0, 4, pos);
-    pos += 4;
-    if (bytesRead !== 4) throw new Error("Unexpected EOF reading encrypted table");
-
-    let result = buf.readUInt32LE(0) >>> 0;
-    result = (result ^ (seed + seed2)) >>> 0;
-    table[i] = result >>> 0;
-
-    seed = (((~seed << 21) + 0x11111111) | (seed >>> 11)) >>> 0;
-    seed2 = (result + seed2 + (seed2 << 5) + 3) >>> 0;
+    table[i] = buf.readUInt32LE(i * 4) >>> 0;
   }
-
   return table;
 }
 

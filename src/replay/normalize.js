@@ -1,5 +1,8 @@
 // @ts-check
 
+const HTML_ENTITY_RE = /&(#x[0-9a-fA-F]+|#\d+|lt|gt|amp|quot|apos);/g;
+const SP_TAG_RE = /<sp\s*\/>/gi;
+
 /**
  * Normalize localized race names to stable English values.
  *
@@ -68,7 +71,7 @@ function decodeHtmlEntities(input) {
   // Minimal entity decoding for replay strings like `&lt;TWSTED&gt;<sp/>herO`.
   // Includes numeric entities for safety.
   return input.replace(
-    /&(#x[0-9a-fA-F]+|#\d+|lt|gt|amp|quot|apos);/g,
+    HTML_ENTITY_RE,
     (_m, body) => {
       if (body === "lt") return "<";
       if (body === "gt") return ">";
@@ -106,7 +109,7 @@ function normalizePlayerName(raw) {
 
   s = decodeHtmlEntities(s);
   // SC2 uses `<sp/>` as a "space" token in some strings.
-  s = s.replace(/<sp\s*\/>/gi, " ");
+  s = s.replace(SP_TAG_RE, " ");
   return s.trim() || null;
 }
 
