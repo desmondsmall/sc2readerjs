@@ -255,3 +255,11 @@ export function loadEcoTimeline(
   replayPath: string,
   options?: LoadEcoTimelineOptions
 ): Promise<ReplayEcoTimeline>;
+
+/**
+ * Clears the module-level LRU cache of decompressed MPQ file bytes.
+ * Useful in long-running processes to free memory, or in tests to ensure
+ * a cold-cache baseline. The cache is shared across all API calls within
+ * the same Node.js process.
+ */
+export function clearReplayFileCache(): void;
