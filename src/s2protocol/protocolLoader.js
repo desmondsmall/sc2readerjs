@@ -120,6 +120,8 @@ const BUILD_ALIASES = {
   95248: 80949,
   95299: 80949,
   95841: 80949,
+  95740: 80949,
+  96163: 80949,
 };
 
 /** @type {Map<string, Protocol>} */
@@ -153,9 +155,33 @@ async function loadProtocol(protocolDir, build) {
   const key = `${protocolDir}:${resolved}`;
   if (protocolCache.has(key)) return protocolCache.get(key);
   const p = path.join(protocolDir, `protocol${resolved}.json`);
-  const protocol = await Protocol.fromJsonFile(p);
-  protocolCache.set(key, protocol);
-  return protocol;
+
+  try {
+    const protocol = await Protocol.fromJsonFile(p);
+    protocolCache.set(key, protocol);
+    return protocol;
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+
+    // No protocol found for this build — fall back to the latest available.
+    //
+    // RISK: If SC2 changed its binary format in this build (new event types,
+    // shifted struct fields, changed enum values), decoded data will be silently
+    // wrong rather than throwing. There is no way to detect this automatically.
+    //
+    // In practice, SC2's protocol has been extremely stable — every build since
+    // ~81009 uses the same protocol (80949), spanning years of patches. New
+    // builds are almost always protocol-identical to the previous one. When that
+    // is confirmed, add an entry to BUILD_ALIASES above to make it explicit.
+    const latest = await loadLatestProtocol(protocolDir);
+    console.warn(
+      `[sc2readerjs] No protocol found for build ${build}` +
+      (resolved !== build ? ` (resolved via alias to ${resolved})` : "") +
+      `. Falling back to latest known protocol (build ${latest.build}). ` +
+      `Add build ${build} to BUILD_ALIASES in protocolLoader.js once confirmed.`
+    );
+    return latest;
+  }
 }
 
 module.exports = { loadProtocol, loadLatestProtocol, listProtocolBuilds };
