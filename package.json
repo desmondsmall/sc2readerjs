@@ -1,6 +1,6 @@
 {
   "name": "@replaysremastered/sc2readerjs",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Extracts game data from Starcraft II replay files.",
   "license": "MIT",
   "private": false,
