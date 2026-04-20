@@ -7,7 +7,7 @@
   "author": "Desmond Small",
   "repository": {
     "type": "git",
-    "url": "https://github.com/desmond_small/sc2readerjs"
+    "url": "https://github.com/desmondsmall/sc2readerjs"
   },
   "type": "commonjs",
   "main": "src/index.js",
