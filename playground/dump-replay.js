@@ -62,9 +62,9 @@ function resolveReplayPath(inputPath) {
 function usage() {
   console.log(`Usage:
   node playground/dump-replay.js [replayPath] [--fixture name] [--list-fixtures]
-                              [--limit N] [--full] [--copy]
-                              [--summary] [--build] [--chat] [--engagements] [--eco]
-                              [--no-engagements]
+                                 [--limit N] [--full] [--copy]
+                                 [--summary] [--build] [--chat] [--engagements] [--eco]
+                                 [--no-engagements] [-h|--help]
 
 Defaults:
   replayPath: (fixture) dh2025_finals_g2

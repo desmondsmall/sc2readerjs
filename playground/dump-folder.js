@@ -29,7 +29,7 @@ function usage() {
   console.log(`Usage:
   node playground/dump-folder.js [dir] [--out file] [--max N] [--limit N] [--full]
                                 [--summary] [--build] [--chat] [--engagements] [--eco]
-                                [--no-engagements]
+                                [--no-engagements] [-h|--help]
 
 Defaults:
   dir: test_replays/DH2025
