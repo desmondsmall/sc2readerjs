@@ -23,6 +23,7 @@ coverage/
 # environment files
 .env
 .env.*
+.npmrc
 
 # package artifacts
 *.tgz
