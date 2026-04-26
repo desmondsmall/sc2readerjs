@@ -20,6 +20,13 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: ReplayResult | null;
   teamId: number | null;
+  /**
+   * Player's Battle.net toon as `"<region>-<programId>-<realm>-<id>"`
+   * (e.g. `"1-S2-1-20830172"`). Matches the directory name Blizzard uses
+   * under `Accounts/<accountId>/<toon>/Replays/`. Null for AI/observer
+   * players and very old replays that don't carry a toon.
+   */
+  toon: string | null;
   /** Integer APM (rounded up). 0 unless loadReplaySummary was called with includeApm: true. */
   apm: number;
 }
@@ -35,6 +42,12 @@ export interface ReplayDetails {
     m_race: Buffer;
     m_result: number;
     m_teamId: number;
+    m_toon?: {
+      m_region: number;
+      m_programId: Buffer;
+      m_realm: number;
+      m_id: number | bigint;
+    } | null;
     [key: string]: unknown;
   }> | null;
   [key: string]: unknown;

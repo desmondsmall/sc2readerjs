@@ -48,6 +48,16 @@ test("loads basic replay summary fields", async () => {
     assert.ok(Number.isFinite(p.apm));
     assert.ok(Number.isInteger(p.apm));
   }
+
+  // Toons should be present for human players in a 5.0 multiplayer replay,
+  // shaped as `<region>-<programId>-<realm>-<id>` (e.g. `1-S2-1-20830172`).
+  for (const p of summary.players) {
+    assert.ok(
+      p.toon === null || /^\d+-[A-Za-z0-9]+-\d+-\d+$/.test(p.toon),
+      `unexpected toon shape: ${p.toon}`
+    );
+  }
+  assert.ok(summary.players.some((p) => typeof p.toon === "string" && p.toon.length > 0));
 });
 
 test("normalizes localized race names (e.g. Korean) to stable English values", async () => {

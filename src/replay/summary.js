@@ -22,6 +22,43 @@ const { normalizePlayerName, normalizeRaceName } = require("./normalize");
 /** @typedef {import("../../index").ReplaySummary} ReplaySummary */
 /** @typedef {import("../../index").LoadReplaySummaryOptions} LoadReplaySummaryOptions */
 
+/**
+ * Format a decoded `m_toon` substructure into the canonical
+ * `<region>-<programId>-<realm>-<id>` string used by Blizzard's directory
+ * layout (e.g. `1-S2-1-20830172`). Returns `null` for AI/observer players
+ * or replays that don't carry a toon.
+ *
+ * @param {{ m_region?: number, m_programId?: Buffer, m_realm?: number, m_id?: number | bigint } | null | undefined} toon
+ * @returns {string | null}
+ */
+function formatToon(toon) {
+  if (toon === null || toon === undefined) return null;
+  const region = toon.m_region;
+  const realm = toon.m_realm;
+  const id = toon.m_id;
+  if (region == null || realm == null || id == null) return null;
+  return `${region}-${decodeFourCC(toon.m_programId)}-${realm}-${id}`;
+}
+
+/**
+ * Decode a FourCC-typed Buffer (4 bytes) into a string. Unlike a plain
+ * UTF-8 string buffer, FourCC values can have NUL or space padding on
+ * either side (e.g. `\0\0S2` or `S2\0\0` or `S2  `). Strip both.
+ *
+ * @param {Buffer | null | undefined} value
+ * @returns {string}
+ */
+function decodeFourCC(value) {
+  if (value === null || value === undefined) return "";
+  const buf = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  // Filter out NUL bytes; the rest decodes as UTF-8. Trim space padding.
+  const bytes = [];
+  for (const b of buf) {
+    if (b !== 0) bytes.push(b);
+  }
+  return Buffer.from(bytes).toString("utf8").trim();
+}
+
 function formatPatchVersion(version) {
   const major = version?.m_major ?? 0;
   const minor = version?.m_minor ?? 0;
@@ -149,6 +186,7 @@ async function loadReplaySummary(replayPath, options = {}) {
           protocol.enumValueToName("NNet.Game.EResultDetails", p?.m_result) ?? null
         ),
         teamId: p?.m_teamId ?? null,
+        toon: formatToon(p?.m_toon),
         apm: 0,
       })) ?? [];
 

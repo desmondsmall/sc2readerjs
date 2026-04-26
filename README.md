@@ -30,6 +30,8 @@ export interface ReplayPlayerSummary {
   race: string | null;
   result: ReplayResult | null;
   teamId: number | null;
+  /** Battle.net toon, e.g. "1-S2-1-20830172". Null for AI/observers. */
+  toon: string | null;
   apm: number;
 }
 
